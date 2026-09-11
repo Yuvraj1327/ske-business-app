@@ -1,0 +1,46 @@
+name: ske_app
+description: Sai Krishna Enterprises — Business Management Application
+publish_to: "none"
+version: 0.1.0
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State management
+  flutter_riverpod: ^2.5.1
+
+  # Routing
+  go_router: ^14.2.7
+
+  # Backend integration
+  supabase_flutter: ^2.6.0
+  dio: ^5.6.0
+
+  # Secure storage for tokens (defense-in-depth; supabase_flutter also
+  # persists its own session, but we keep this for any extra app-level state)
+  flutter_secure_storage: ^9.2.2
+
+  # Env config
+  flutter_dotenv: ^5.1.0
+
+  # Utilities
+  intl: ^0.19.0
+  equatable: ^2.0.5
+  file_picker: ^8.1.2
+
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  mocktail: ^1.0.4
+
+flutter:
+  uses-material-design: true
+  assets:
+    - .env

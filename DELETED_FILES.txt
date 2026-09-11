@@ -1,0 +1,6 @@
+The following files were DELETED as part of this change (no longer used
+after removing the "More" menu and dark-mode theme switching). Delete them
+from your project too when applying this delta:
+
+  flutter_app/lib/app/shell/more_menu_sheet.dart
+  flutter_app/lib/core/theme/theme_mode_provider.dart

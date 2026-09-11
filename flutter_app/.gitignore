@@ -1,0 +1,11 @@
+.env
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+.idea/
+*.iml
+.vscode/
+android/local.properties
+ios/Flutter/Generated.xcconfig
