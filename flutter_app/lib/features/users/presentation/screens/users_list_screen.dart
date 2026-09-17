@@ -66,8 +66,10 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
         children: [
           Row(
             children: [
-              Text('Users', style: AppTextStyles.heading1),
-              const Spacer(),
+              Expanded(
+                child: Text('Users', style: AppTextStyles.heading1, overflow: TextOverflow.ellipsis),
+              ),
+              const SizedBox(width: 12),
               ElevatedButton.icon(
                 icon: const Icon(Icons.person_add_alt_1, size: 18),
                 label: const Text('Add User'),
@@ -107,8 +109,11 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
                         itemBuilder: (context, index) {
                           final user = page.items[index];
                           return ListTile(
-                            title: Text(user.fullName),
-                            subtitle: Text('${Formatters.roleLabel(user.roleName)}${user.phone != null ? ' · ${user.phone}' : ''}'),
+                            title: Text(user.fullName, overflow: TextOverflow.ellipsis),
+                            subtitle: Text(
+                              '${Formatters.roleLabel(user.roleName)}${user.phone != null ? ' · ${user.phone}' : ''}',
+                              overflow: TextOverflow.ellipsis,
+                            ),
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -137,11 +142,16 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
                     ),
                     const SizedBox(height: 8),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('${page.total} user(s) · Page ${page.page} of ${page.totalPages}',
-                            style: AppTextStyles.caption),
+                        Expanded(
+                          child: Text(
+                            '${page.total} user(s) · Page ${page.page} of ${page.totalPages}',
+                            style: AppTextStyles.caption,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                         Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             IconButton(
                               icon: const Icon(Icons.chevron_left),

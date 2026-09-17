@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../app/theme/breakpoints.dart';
 import '../../../../core/errors/failure.dart';
 import '../../../../core/theme/theme_extensions.dart';
 import '../../../../core/utils/formatters.dart';
@@ -172,32 +173,49 @@ class _CreateSaleScreenState extends ConsumerState<CreateSaleScreen> {
                               },
                             ),
                             const SizedBox(height: 10),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: TextField(
-                                    controller: _qtyController,
-                                    decoration: const InputDecoration(labelText: 'Quantity'),
-                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: TextField(
-                                    controller: _priceController,
-                                    decoration: const InputDecoration(labelText: 'Unit Price'),
-                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: TextField(
-                                    controller: _lineDiscountController,
-                                    decoration: const InputDecoration(labelText: 'Line Discount'),
-                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                  ),
-                                ),
-                              ],
+                            LayoutBuilder(
+                              builder: (context, constraints) {
+                                final qtyField = TextField(
+                                  controller: _qtyController,
+                                  decoration: const InputDecoration(labelText: 'Quantity'),
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                );
+                                final priceField = TextField(
+                                  controller: _priceController,
+                                  decoration: const InputDecoration(labelText: 'Unit Price'),
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                );
+                                final discountField = TextField(
+                                  controller: _lineDiscountController,
+                                  decoration: const InputDecoration(labelText: 'Line Discount'),
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                );
+
+                                // 3 side-by-side fields leave ~110px each on
+                                // a phone — too narrow for label + numeric
+                                // input. Stack them below `compact` instead.
+                                if (constraints.maxWidth < AppBreakpoints.compact) {
+                                  return Column(
+                                    children: [
+                                      qtyField,
+                                      const SizedBox(height: 10),
+                                      priceField,
+                                      const SizedBox(height: 10),
+                                      discountField,
+                                    ],
+                                  );
+                                }
+
+                                return Row(
+                                  children: [
+                                    Expanded(child: qtyField),
+                                    const SizedBox(width: 10),
+                                    Expanded(child: priceField),
+                                    const SizedBox(width: 10),
+                                    Expanded(child: discountField),
+                                  ],
+                                );
+                              },
                             ),
                             const SizedBox(height: 10),
                             Align(

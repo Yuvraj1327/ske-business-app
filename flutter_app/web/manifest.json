@@ -1,11 +1,11 @@
 {
-    "name": "ske_app",
-    "short_name": "ske_app",
+    "name": "Sai Krishna Enterprises",
+    "short_name": "SK Enterprises",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#FFFFFF",
+    "theme_color": "#173B63",
+    "description": "Sai Krishna Enterprises business management app.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

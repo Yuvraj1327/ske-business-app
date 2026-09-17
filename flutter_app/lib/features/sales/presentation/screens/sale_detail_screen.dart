@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../app/theme/breakpoints.dart';
 import '../../../../core/errors/failure.dart';
 import '../../../../core/permissions/permission.dart';
 import '../../../../core/permissions/permission_provider.dart';
@@ -119,37 +120,60 @@ class SaleDetailScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 20),
-                Row(
-                  children: [
-                    if (canRecordPayment && sale.status == 'active')
-                      Expanded(
-                        child: OutlinedButton.icon(
+                Builder(
+                  builder: (context) {
+                    final actionButtons = [
+                      if (canRecordPayment && sale.status == 'active')
+                        OutlinedButton.icon(
                           icon: const Icon(Icons.payments_outlined, size: 18),
                           label: const Text('Record Payment'),
                           onPressed: () => context.go('/payments/new?customerId=${sale.customerId}&saleId=${sale.id}'),
                         ),
-                      ),
-                    if (canReturn && sale.status == 'active') ...[
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: OutlinedButton.icon(
+                      if (canReturn && sale.status == 'active')
+                        OutlinedButton.icon(
                           icon: const Icon(Icons.assignment_return_outlined, size: 18),
                           label: const Text('Create Return'),
                           onPressed: () => context.go('/sales/${sale.id}/return'),
                         ),
-                      ),
-                    ],
-                    if (canCancel && sale.status == 'active') ...[
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: OutlinedButton.icon(
+                      if (canCancel && sale.status == 'active')
+                        OutlinedButton.icon(
                           icon: const Icon(Icons.cancel_outlined, size: 18, color: AppColors.error),
                           label: const Text('Cancel Sale', style: TextStyle(color: AppColors.error)),
                           onPressed: () => _cancelSale(context, ref),
                         ),
-                      ),
-                    ],
-                  ],
+                    ];
+
+                    if (actionButtons.isEmpty) return const SizedBox.shrink();
+
+                    return LayoutBuilder(
+                      builder: (context, constraints) {
+                        // Below `compact`, a fixed-share Row squeezes 2-3
+                        // icon+label buttons until their text truncates —
+                        // stack them full-width instead so every label stays
+                        // legible and each button keeps a full tap target.
+                        if (constraints.maxWidth < AppBreakpoints.compact) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              for (var i = 0; i < actionButtons.length; i++) ...[
+                                if (i > 0) const SizedBox(height: 10),
+                                actionButtons[i],
+                              ],
+                            ],
+                          );
+                        }
+
+                        return Row(
+                          children: [
+                            for (var i = 0; i < actionButtons.length; i++) ...[
+                              if (i > 0) const SizedBox(width: 12),
+                              Expanded(child: actionButtons[i]),
+                            ],
+                          ],
+                        );
+                      },
+                    );
+                  },
                 ),
               ],
             ),

@@ -45,8 +45,8 @@ class SalesmenListScreen extends ConsumerWidget {
                   itemBuilder: (context, index) {
                     final salesman = salesmen[index];
                     return ListTile(
-                      title: Text(salesman.fullName),
-                      subtitle: Text(salesman.phone ?? '—'),
+                      title: Text(salesman.fullName, overflow: TextOverflow.ellipsis),
+                      subtitle: Text(salesman.phone ?? '—', overflow: TextOverflow.ellipsis),
                       trailing: StatusBadge(
                         label: salesman.isActive ? 'Active' : 'Inactive',
                         color: salesman.isActive ? AppColors.success : AppColors.statusCancelled,

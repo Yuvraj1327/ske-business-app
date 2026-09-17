@@ -31,13 +31,18 @@ class SummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       clipBehavior: Clip.antiAlias,
+      color: isHero ? iconColor.withOpacity(0.07) : null,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: isHero ? iconColor.withOpacity(0.25) : Theme.of(context).dividerColor),
+      ),
       child: IntrinsicHeight(
         child: Row(
           children: [
             Container(width: 4, color: iconColor),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
@@ -45,22 +50,22 @@ class SummaryCard extends StatelessWidget {
                     Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(7),
+                          padding: const EdgeInsets.all(6),
                           decoration: BoxDecoration(color: iconColor.withOpacity(0.12), borderRadius: BorderRadius.circular(8)),
-                          child: Icon(icon, size: 18, color: iconColor),
+                          child: Icon(icon, size: 16, color: iconColor),
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(child: Text(label, style: AppTextStyles.bodySecondary)),
+                        const SizedBox(width: 8),
+                        Expanded(child: Text(label, style: AppTextStyles.bodySecondary, overflow: TextOverflow.ellipsis)),
                       ],
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 8),
                     Text(
                       value,
-                      style: isHero ? AppTextStyles.amountLarge : AppTextStyles.heading1,
+                      style: isHero ? AppTextStyles.amountLarge : AppTextStyles.amount,
                       overflow: TextOverflow.ellipsis,
                     ),
                     if (subtitle != null) ...[
-                      const SizedBox(height: 3),
+                      const SizedBox(height: 2),
                       Text(subtitle!, style: AppTextStyles.caption, overflow: TextOverflow.ellipsis),
                     ],
                   ],

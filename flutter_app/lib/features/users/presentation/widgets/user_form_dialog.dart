@@ -103,8 +103,8 @@ class _UserFormDialogState extends ConsumerState<_UserFormDialog> {
 
     return AlertDialog(
       title: Text(_isEditing ? 'Edit User' : 'Add User'),
-      content: SizedBox(
-        width: 420,
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
         child: Form(
           key: _formKey,
           child: SingleChildScrollView(

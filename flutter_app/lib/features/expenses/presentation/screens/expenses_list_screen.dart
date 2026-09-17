@@ -50,8 +50,10 @@ class ExpensesListScreen extends ConsumerWidget {
         children: [
           Row(
             children: [
-              Text('Expenses', style: AppTextStyles.heading1),
-              const Spacer(),
+              Expanded(
+                child: Text('Expenses', style: AppTextStyles.heading1, overflow: TextOverflow.ellipsis),
+              ),
+              const SizedBox(width: 12),
               ElevatedButton.icon(
                 icon: const Icon(Icons.add, size: 18),
                 label: const Text('Add Expense'),
@@ -81,7 +83,11 @@ class ExpensesListScreen extends ConsumerWidget {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text('Total (active)', style: AppTextStyles.bodySecondary),
-                            Text(Formatters.currency(expensePage.totalAmount), style: AppTextStyles.heading3),
+                            Text(
+                              Formatters.currency(expensePage.totalAmount),
+                              style: AppTextStyles.heading3,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ],
                         ),
                       ),
@@ -94,9 +100,10 @@ class ExpensesListScreen extends ConsumerWidget {
                         itemBuilder: (context, index) {
                           final expense = expensePage.items[index];
                           return ListTile(
-                            title: Text(expense.categoryName),
+                            title: Text(expense.categoryName, overflow: TextOverflow.ellipsis),
                             subtitle: Text(
                               '${Formatters.date(expense.expenseDate)}${expense.description != null ? ' · ${expense.description}' : ''}',
+                              overflow: TextOverflow.ellipsis,
                             ),
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -119,10 +126,16 @@ class ExpensesListScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 8),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('${expensePage.total} expense(s) · Page ${expensePage.page} of ${expensePage.totalPages}', style: AppTextStyles.caption),
+                        Expanded(
+                          child: Text(
+                            '${expensePage.total} expense(s) · Page ${expensePage.page} of ${expensePage.totalPages}',
+                            style: AppTextStyles.caption,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                         Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             IconButton(
                               icon: const Icon(Icons.chevron_left),

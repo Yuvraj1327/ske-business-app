@@ -138,15 +138,18 @@ class _RecordPaymentScreenState extends ConsumerState<RecordPaymentScreen> {
                     const SizedBox(height: 16),
                     Text('Payment Method', style: AppTextStyles.heading3),
                     const SizedBox(height: 8),
-                    SegmentedButton<String>(
-                      segments: const [
-                        ButtonSegment(value: 'cash', label: Text('Cash')),
-                        ButtonSegment(value: 'upi', label: Text('UPI')),
-                        ButtonSegment(value: 'bank_transfer', label: Text('Bank')),
-                        ButtonSegment(value: 'cheque', label: Text('Cheque')),
-                      ],
-                      selected: {_method},
-                      onSelectionChanged: isSubmitting ? null : (s) => setState(() => _method = s.first),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: SegmentedButton<String>(
+                        segments: const [
+                          ButtonSegment(value: 'cash', label: Text('Cash')),
+                          ButtonSegment(value: 'upi', label: Text('UPI')),
+                          ButtonSegment(value: 'bank_transfer', label: Text('Bank')),
+                          ButtonSegment(value: 'cheque', label: Text('Cheque')),
+                        ],
+                        selected: {_method},
+                        onSelectionChanged: isSubmitting ? null : (s) => setState(() => _method = s.first),
+                      ),
                     ),
                     if (_method == 'cheque') ...[
                       const SizedBox(height: 16),

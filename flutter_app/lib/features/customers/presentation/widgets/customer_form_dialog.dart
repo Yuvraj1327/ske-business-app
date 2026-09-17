@@ -95,8 +95,8 @@ class _CustomerFormDialogState extends ConsumerState<_CustomerFormDialog> {
 
     return AlertDialog(
       title: Text(_isEditing ? 'Edit Customer' : 'Add Customer'),
-      content: SizedBox(
-        width: 420,
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
         child: Form(
           key: _formKey,
           child: SingleChildScrollView(

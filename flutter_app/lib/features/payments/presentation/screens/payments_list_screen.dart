@@ -66,8 +66,10 @@ class PaymentsListScreen extends ConsumerWidget {
         children: [
           Row(
             children: [
-              Text('Payments', style: AppTextStyles.heading1),
-              const Spacer(),
+              Expanded(
+                child: Text('Payments', style: AppTextStyles.heading1, overflow: TextOverflow.ellipsis),
+              ),
+              const SizedBox(width: 12),
               ElevatedButton.icon(
                 icon: const Icon(Icons.add, size: 18),
                 label: const Text('Record Payment'),
@@ -97,10 +99,11 @@ class PaymentsListScreen extends ConsumerWidget {
                           final payment = page.items[index];
                           final isPendingCheque = payment.paymentMethod == 'cheque' && payment.status == 'pending';
                           return ListTile(
-                            title: Text(payment.customerName),
+                            title: Text(payment.customerName, overflow: TextOverflow.ellipsis),
                             subtitle: Text(
                               '${payment.paymentMethod.replaceAll('_', ' ').toUpperCase()} · ${Formatters.date(payment.paymentDate)}'
                               '${payment.chequeDetail != null ? ' · Cheque #${payment.chequeDetail!.chequeNumber}' : ''}',
+                              overflow: TextOverflow.ellipsis,
                             ),
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -128,10 +131,16 @@ class PaymentsListScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 8),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('${page.total} payment(s) · Page ${page.page} of ${page.totalPages}', style: AppTextStyles.caption),
+                        Expanded(
+                          child: Text(
+                            '${page.total} payment(s) · Page ${page.page} of ${page.totalPages}',
+                            style: AppTextStyles.caption,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                         Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             IconButton(
                               icon: const Icon(Icons.chevron_left),

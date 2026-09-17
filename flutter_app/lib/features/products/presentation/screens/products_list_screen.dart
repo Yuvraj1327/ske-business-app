@@ -40,8 +40,10 @@ class _ProductsListScreenState extends ConsumerState<ProductsListScreen> {
         children: [
           Row(
             children: [
-              Text('Products', style: AppTextStyles.heading1),
-              const Spacer(),
+              Expanded(
+                child: Text('Products', style: AppTextStyles.heading1, overflow: TextOverflow.ellipsis),
+              ),
+              const SizedBox(width: 12),
               ElevatedButton.icon(
                 icon: const Icon(Icons.add, size: 18),
                 label: const Text('Add Product'),
@@ -75,8 +77,11 @@ class _ProductsListScreenState extends ConsumerState<ProductsListScreen> {
                   itemBuilder: (context, index) {
                     final product = page.items[index];
                     return ListTile(
-                      title: Text(product.name),
-                      subtitle: Text('${Formatters.currency(product.defaultPrice)} / ${product.unit}${product.sku != null ? ' · SKU: ${product.sku}' : ''}'),
+                      title: Text(product.name, overflow: TextOverflow.ellipsis),
+                      subtitle: Text(
+                        '${Formatters.currency(product.defaultPrice)} / ${product.unit}${product.sku != null ? ' · SKU: ${product.sku}' : ''}',
+                        overflow: TextOverflow.ellipsis,
+                      ),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [

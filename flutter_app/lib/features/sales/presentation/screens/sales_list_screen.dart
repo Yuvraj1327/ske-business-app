@@ -38,8 +38,10 @@ class SalesListScreen extends ConsumerWidget {
         children: [
           Row(
             children: [
-              Text('Sales', style: AppTextStyles.heading1),
-              const Spacer(),
+              Expanded(
+                child: Text('Sales', style: AppTextStyles.heading1, overflow: TextOverflow.ellipsis),
+              ),
+              const SizedBox(width: 12),
               ElevatedButton.icon(
                 icon: const Icon(Icons.add, size: 18),
                 label: const Text('New Sale'),
@@ -68,10 +70,11 @@ class SalesListScreen extends ConsumerWidget {
                         itemBuilder: (context, index) {
                           final sale = page.items[index];
                           return ListTile(
-                            title: Text(sale.customerName),
+                            title: Text(sale.customerName, overflow: TextOverflow.ellipsis),
                             subtitle: Text(
                               '${sale.invoiceNumber ?? 'No invoice'} · ${Formatters.date(sale.saleDate)}'
                               '${sale.status == 'cancelled' ? ' · Cancelled' : ''}',
+                              overflow: TextOverflow.ellipsis,
                             ),
                             trailing: Column(
                               crossAxisAlignment: CrossAxisAlignment.end,
@@ -89,10 +92,16 @@ class SalesListScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 8),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('${page.total} sale(s) · Page ${page.page} of ${page.totalPages}', style: AppTextStyles.caption),
+                        Expanded(
+                          child: Text(
+                            '${page.total} sale(s) · Page ${page.page} of ${page.totalPages}',
+                            style: AppTextStyles.caption,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                         Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             IconButton(
                               icon: const Icon(Icons.chevron_left),

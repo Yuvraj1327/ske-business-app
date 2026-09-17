@@ -76,7 +76,7 @@ class _ImportsScreenState extends ConsumerState<ImportsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text('Failed Rows — ${job.fileName}', style: AppTextStyles.heading3),
+                    Text('Failed Rows — ${job.fileName}', style: AppTextStyles.heading3, overflow: TextOverflow.ellipsis),
                     const Divider(),
                     Expanded(
                       child: rowsAsync.when(
@@ -94,7 +94,12 @@ class _ImportsScreenState extends ConsumerState<ImportsScreen> {
                               return ListTile(
                                 dense: true,
                                 leading: Text('Row ${row.rowNumber}'),
-                                title: Text(row.errorMessage ?? 'Unknown error', style: const TextStyle(color: AppColors.error)),
+                                title: Text(
+                                  row.errorMessage ?? 'Unknown error',
+                                  style: const TextStyle(color: AppColors.error),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 2,
+                                ),
                               );
                             },
                           );
@@ -189,10 +194,11 @@ class _ImportsScreenState extends ConsumerState<ImportsScreen> {
                   itemBuilder: (context, i) {
                     final job = page.items[i];
                     return ListTile(
-                      title: Text(job.fileName),
+                      title: Text(job.fileName, overflow: TextOverflow.ellipsis),
                       subtitle: Text(
                         '${job.entityType} · ${Formatters.dateTime(job.createdAt)}'
                         '${job.totalRows != null ? ' · ${job.successRows}/${job.totalRows} succeeded' : ''}',
+                        overflow: TextOverflow.ellipsis,
                       ),
                       trailing: StatusBadge(label: job.status, color: _statusColor(job.status)),
                       onTap: job.failedRows > 0 ? () => _showFailedRows(job) : null,

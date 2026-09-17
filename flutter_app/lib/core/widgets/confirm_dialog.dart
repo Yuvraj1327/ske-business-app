@@ -16,7 +16,10 @@ Future<bool> showConfirmDialog(
     context: context,
     builder: (context) => AlertDialog(
       title: Text(title),
-      content: Text(message),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: SingleChildScrollView(child: Text(message)),
+      ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(false),

@@ -2,61 +2,90 @@ import 'package:flutter/material.dart';
 
 import 'app_colors.dart';
 
-/// Builds the app's (light-only) ThemeData from the "Ledger Clarity" token
-/// system (see AppColors doc comment). Structural chrome — app bars, cards,
-/// buttons, inputs, nav — all read their colors from Theme.of(context)
-/// rather than hardcoding AppColors.* directly, which is what keeps every
-/// screen visually consistent from one central place.
+/// Builds the app's ThemeData from the "Ledger Clarity" token system (see
+/// AppColors doc comment). Structural chrome — app bars, cards, buttons,
+/// inputs, nav — all read their colors from Theme.of(context) rather than
+/// hardcoding AppColors.* directly, which is what keeps every screen
+/// visually consistent from one central place.
+///
+/// [light] and [dark] both go through [_build] with a different set of
+/// canvas tokens, so the two themes can never structurally drift apart —
+/// only backgrounds/surfaces/text differ, brand colors stay identical.
 class AppTheme {
   AppTheme._();
 
-  static ThemeData get light {
+  static ThemeData get light => _build(
+        brightness: Brightness.light,
+        background: AppColors.background,
+        surface: AppColors.surface,
+        textPrimary: AppColors.textPrimary,
+        textSecondary: AppColors.textSecondary,
+        divider: AppColors.divider,
+      );
+
+  static ThemeData get dark => _build(
+        brightness: Brightness.dark,
+        background: AppColors.darkBackground,
+        surface: AppColors.darkSurface,
+        textPrimary: AppColors.darkTextPrimary,
+        textSecondary: AppColors.darkTextSecondary,
+        divider: AppColors.darkDivider,
+      );
+
+  static ThemeData _build({
+    required Brightness brightness,
+    required Color background,
+    required Color surface,
+    required Color textPrimary,
+    required Color textSecondary,
+    required Color divider,
+  }) {
     final colorScheme = ColorScheme.fromSeed(
       seedColor: AppColors.primary,
-      brightness: Brightness.light,
+      brightness: brightness,
       primary: AppColors.primary,
       secondary: AppColors.accent,
       error: AppColors.error,
-      surface: AppColors.surface,
+      surface: surface,
     );
 
     final base = ThemeData(
       useMaterial3: true,
-      brightness: Brightness.light,
+      brightness: brightness,
       colorScheme: colorScheme,
-      scaffoldBackgroundColor: AppColors.background,
+      scaffoldBackgroundColor: background,
       fontFamily: 'Roboto',
     );
 
     return base.copyWith(
       appBarTheme: AppBarTheme(
-        backgroundColor: AppColors.surface,
-        foregroundColor: AppColors.textPrimary,
+        backgroundColor: surface,
+        foregroundColor: textPrimary,
         elevation: 0,
         scrolledUnderElevation: 1,
         centerTitle: false,
-        titleTextStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, letterSpacing: -0.2, color: AppColors.textPrimary),
+        titleTextStyle: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, letterSpacing: -0.2, color: textPrimary),
       ),
       cardTheme: CardThemeData(
-        color: AppColors.surface,
+        color: surface,
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(14),
-          side: const BorderSide(color: AppColors.divider),
+          side: BorderSide(color: divider),
         ),
         margin: EdgeInsets.zero,
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: AppColors.surface,
+        fillColor: surface,
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: AppColors.divider),
+          borderSide: BorderSide(color: divider),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: AppColors.divider),
+          borderSide: BorderSide(color: divider),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
@@ -85,29 +114,29 @@ class AppTheme {
         ),
       ),
       navigationRailTheme: NavigationRailThemeData(
-        backgroundColor: AppColors.surface,
+        backgroundColor: surface,
         selectedIconTheme: IconThemeData(color: colorScheme.primary),
         selectedLabelTextStyle: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.w600, fontSize: 12),
-        unselectedIconTheme: const IconThemeData(color: AppColors.textSecondary),
-        unselectedLabelTextStyle: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
-        indicatorColor: colorScheme.primary.withOpacity(0.10),
+        unselectedIconTheme: IconThemeData(color: textSecondary),
+        unselectedLabelTextStyle: TextStyle(color: textSecondary, fontSize: 12),
+        indicatorColor: colorScheme.primary.withOpacity(0.14),
       ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: AppColors.surface,
-        indicatorColor: colorScheme.primary.withOpacity(0.14),
+        backgroundColor: surface,
+        indicatorColor: colorScheme.primary.withOpacity(0.18),
         iconTheme: WidgetStateProperty.resolveWith(
-          (states) => IconThemeData(color: states.contains(WidgetState.selected) ? colorScheme.primary : AppColors.textSecondary),
+          (states) => IconThemeData(color: states.contains(WidgetState.selected) ? colorScheme.primary : textSecondary),
         ),
         labelTextStyle: WidgetStateProperty.resolveWith(
           (states) => TextStyle(
             fontSize: 12,
             fontWeight: states.contains(WidgetState.selected) ? FontWeight.w600 : FontWeight.w400,
-            color: states.contains(WidgetState.selected) ? colorScheme.primary : AppColors.textSecondary,
+            color: states.contains(WidgetState.selected) ? colorScheme.primary : textSecondary,
           ),
         ),
       ),
-      dividerTheme: const DividerThemeData(color: AppColors.divider, thickness: 1),
-      textTheme: base.textTheme.apply(bodyColor: AppColors.textPrimary, displayColor: AppColors.textPrimary),
+      dividerTheme: DividerThemeData(color: divider, thickness: 1),
+      textTheme: base.textTheme.apply(bodyColor: textPrimary, displayColor: textPrimary),
     );
   }
 }

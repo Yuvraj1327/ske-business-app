@@ -40,8 +40,10 @@ class _CustomersListScreenState extends ConsumerState<CustomersListScreen> {
         children: [
           Row(
             children: [
-              Text('Customers', style: AppTextStyles.heading1),
-              const Spacer(),
+              Expanded(
+                child: Text('Customers', style: AppTextStyles.heading1, overflow: TextOverflow.ellipsis),
+              ),
+              const SizedBox(width: 12),
               ElevatedButton.icon(
                 icon: const Icon(Icons.person_add_alt_1, size: 18),
                 label: const Text('Add Customer'),
@@ -78,8 +80,8 @@ class _CustomersListScreenState extends ConsumerState<CustomersListScreen> {
                         itemBuilder: (context, index) {
                           final customer = page.items[index];
                           return ListTile(
-                            title: Text(customer.name),
-                            subtitle: Text(customer.phone ?? customer.email ?? '—'),
+                            title: Text(customer.name, overflow: TextOverflow.ellipsis),
+                            subtitle: Text(customer.phone ?? customer.email ?? '—', overflow: TextOverflow.ellipsis),
                             trailing: StatusBadge(
                               label: customer.isActive ? 'Active' : 'Inactive',
                               color: customer.isActive ? AppColors.success : AppColors.statusCancelled,
@@ -91,11 +93,16 @@ class _CustomersListScreenState extends ConsumerState<CustomersListScreen> {
                     ),
                     const SizedBox(height: 8),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('${page.total} customer(s) · Page ${page.page} of ${page.totalPages}',
-                            style: AppTextStyles.caption),
+                        Expanded(
+                          child: Text(
+                            '${page.total} customer(s) · Page ${page.page} of ${page.totalPages}',
+                            style: AppTextStyles.caption,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                         Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             IconButton(
                               icon: const Icon(Icons.chevron_left),

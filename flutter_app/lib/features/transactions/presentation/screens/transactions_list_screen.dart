@@ -27,8 +27,10 @@ class TransactionsListScreen extends ConsumerWidget {
         children: [
           Row(
             children: [
-              Text('Cash / UPI / Bank', style: AppTextStyles.heading1),
-              const Spacer(),
+              Expanded(
+                child: Text('Cash / UPI / Bank', style: AppTextStyles.heading1, overflow: TextOverflow.ellipsis),
+              ),
+              const SizedBox(width: 12),
               ElevatedButton.icon(
                 icon: const Icon(Icons.add, size: 18),
                 label: const Text('Add Transaction'),
@@ -81,11 +83,10 @@ class TransactionsListScreen extends ConsumerWidget {
                       child: Padding(
                         padding: const EdgeInsets.all(14),
                         child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
                           children: [
-                            _totalTile('In', txnPage.totalIn, AppColors.success),
-                            _totalTile('Out', txnPage.totalOut, AppColors.error),
-                            _totalTile('Net', txnPage.totalIn - txnPage.totalOut, AppColors.primary),
+                            Expanded(child: _totalTile('In', txnPage.totalIn, AppColors.success)),
+                            Expanded(child: _totalTile('Out', txnPage.totalOut, AppColors.error)),
+                            Expanded(child: _totalTile('Net', txnPage.totalIn - txnPage.totalOut, AppColors.primary)),
                           ],
                         ),
                       ),
@@ -108,6 +109,8 @@ class TransactionsListScreen extends ConsumerWidget {
                               '${Formatters.date(txn.transactionDate)}'
                               '${txn.referenceNote != null ? ' · ${txn.referenceNote}' : ''}'
                               '${txn.relatedPaymentId != null ? ' · from payment' : ''}',
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
                             ),
                             trailing: Text(
                               '${isIn ? '+' : '−'}${Formatters.currency(txn.amount)}',
@@ -119,10 +122,16 @@ class TransactionsListScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 8),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('${txnPage.total} transaction(s) · Page ${txnPage.page} of ${txnPage.totalPages}', style: AppTextStyles.caption),
+                        Expanded(
+                          child: Text(
+                            '${txnPage.total} transaction(s) · Page ${txnPage.page} of ${txnPage.totalPages}',
+                            style: AppTextStyles.caption,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                         Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             IconButton(
                               icon: const Icon(Icons.chevron_left),
@@ -155,7 +164,12 @@ class TransactionsListScreen extends ConsumerWidget {
       children: [
         Text(label, style: AppTextStyles.caption),
         const SizedBox(height: 4),
-        Text(Formatters.currency(value), style: AppTextStyles.heading3.copyWith(color: color)),
+        Text(
+          Formatters.currency(value),
+          style: AppTextStyles.heading3.copyWith(color: color),
+          overflow: TextOverflow.ellipsis,
+          maxLines: 1,
+        ),
       ],
     );
   }

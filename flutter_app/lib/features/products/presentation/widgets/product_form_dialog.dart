@@ -88,8 +88,8 @@ class _ProductFormDialogState extends ConsumerState<_ProductFormDialog> {
 
     return AlertDialog(
       title: Text(_isEditing ? 'Edit Product' : 'Add Product'),
-      content: SizedBox(
-        width: 400,
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 400),
         child: Form(
           key: _formKey,
           child: SingleChildScrollView(

@@ -1,24 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/theme/theme_mode_provider.dart';
 import 'router.dart';
 import 'theme/app_theme.dart';
 
-/// Light theme only, always — no dark mode / theme switching is offered
-/// (a prior pass added it; removed per explicit direction to keep the app
-/// light-only and not implement theme switching).
+/// Light theme is the default; Settings lets the user switch to Dark, and
+/// the choice persists via [themeModeProvider].
 class SkeApp extends ConsumerWidget {
   const SkeApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
+    final themeMode = ref.watch(themeModeProvider);
 
     return MaterialApp.router(
       title: 'Sai Krishna Enterprises',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
-      themeMode: ThemeMode.light,
+      darkTheme: AppTheme.dark,
+      themeMode: themeMode,
       routerConfig: router,
     );
   }

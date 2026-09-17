@@ -3,13 +3,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../app/theme/breakpoints.dart';
 import '../../../../core/auth/auth_state.dart';
 import '../../../../core/errors/failure.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/error_view.dart';
 import '../../../../core/widgets/loading_view.dart';
+import '../../../auth/domain/app_user.dart';
 import '../providers/dashboard_providers.dart';
 import '../widgets/dashboard_date_filter_bar.dart';
+import '../widgets/dashboard_overview_section.dart';
+import '../widgets/dashboard_quick_actions.dart';
+import '../widgets/dashboard_recent_activity.dart';
 import '../widgets/delivery_dashboard_view.dart';
 import '../widgets/summary_card.dart';
 
@@ -43,6 +48,13 @@ class DashboardShellScreen extends ConsumerWidget {
       return const LoadingView(message: 'Loading your profile...');
     }
 
+    if (userAsync.hasError) {
+      return ErrorView(
+        failure: userAsync.error is Failure ? userAsync.error as Failure : Failure.unknown(userAsync.error.toString()),
+        onRetry: () => ref.invalidate(currentUserProvider),
+      );
+    }
+
     final user = userAsync.valueOrNull;
     if (user == null) {
       return const LoadingView();
@@ -55,19 +67,53 @@ class DashboardShellScreen extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('Welcome, ${user.fullName}', style: AppTextStyles.heading1),
-          const SizedBox(height: 2),
-          Text(
-            Formatters.roleLabel(user.roleName),
-            style: AppTextStyles.bodySecondary,
-          ),
-          const SizedBox(height: 16),
+          _DashboardHeader(user: user),
+          const SizedBox(height: 18),
           if (isDeliveryAgent)
             const DeliveryDashboardView()
           else
             const _BusinessDashboardView(),
         ],
       ),
+    );
+  }
+}
+
+/// Welcome header with a role badge — a touch more presence than a plain
+/// heading, while staying compact (one row, no extra card chrome).
+class _DashboardHeader extends StatelessWidget {
+  const _DashboardHeader({required this.user});
+
+  final AppUser user;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Welcome, ${user.fullName}', style: AppTextStyles.heading1),
+              const SizedBox(height: 4),
+              Text('Here\'s what\'s happening with your business', style: AppTextStyles.bodySecondary),
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withOpacity(0.10),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            Formatters.roleLabel(user.roleName),
+            style: AppTextStyles.caption.copyWith(color: AppColors.primary, fontWeight: FontWeight.w700),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -122,11 +168,9 @@ class _BusinessDashboardView extends ConsumerWidget {
 
             return LayoutBuilder(
               builder: (context, constraints) {
-                final crossAxisCount = constraints.maxWidth >= 1000
-                    ? 4
-                    : constraints.maxWidth >= 640
-                        ? 2
-                        : 1;
+                // Compact 2-column grid even on mobile — a tighter, more
+                // scannable layout than the old single-column stack.
+                final crossAxisCount = constraints.maxWidth >= AppBreakpoints.medium ? 4 : 2;
 
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -140,30 +184,29 @@ class _BusinessDashboardView extends ConsumerWidget {
                       isHero: true,
                     ),
                     const SizedBox(height: 12),
-                    if (crossAxisCount == 1)
-                      // Single column: stack with natural per-card height
-                      // instead of forcing a grid aspect ratio.
-                      Column(
-                        children: [
-                          for (final card in cards) ...[card, const SizedBox(height: 12)],
-                        ],
-                      )
-                    else
-                      GridView.count(
-                        crossAxisCount: crossAxisCount,
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
-                        childAspectRatio: crossAxisCount == 2 ? 2.2 : 1.7,
-                        children: cards,
-                      ),
+                    GridView.count(
+                      crossAxisCount: crossAxisCount,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                      childAspectRatio: crossAxisCount == 2 ? 1.55 : 1.7,
+                      children: cards,
+                    ),
+                    const SizedBox(height: 20),
+                    DashboardOverviewSection(summary: summary),
                   ],
                 );
               },
             );
           },
         ),
+        const SizedBox(height: 20),
+        Text('Quick Actions', style: AppTextStyles.heading3),
+        const SizedBox(height: 10),
+        const DashboardQuickActions(),
+        const SizedBox(height: 20),
+        const DashboardRecentActivity(),
       ],
     );
   }

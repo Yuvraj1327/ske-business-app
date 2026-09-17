@@ -62,47 +62,52 @@ class _TransactionFormDialogState extends ConsumerState<_TransactionFormDialog> 
 
     return AlertDialog(
       title: const Text('Add Transaction'),
-      content: SizedBox(
-        width: 380,
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 380),
         child: Form(
           key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text('Type', style: Theme.of(context).textTheme.labelLarge),
-              const SizedBox(height: 6),
-              SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(value: 'cash', label: Text('Cash')),
-                  ButtonSegment(value: 'upi', label: Text('UPI')),
-                  ButtonSegment(value: 'bank', label: Text('Bank')),
-                ],
-                selected: {_type},
-                onSelectionChanged: isSubmitting ? null : (s) => setState(() => _type = s.first),
-              ),
-              const SizedBox(height: 14),
-              Text('Direction', style: Theme.of(context).textTheme.labelLarge),
-              const SizedBox(height: 6),
-              SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(value: 'in', label: Text('Cash In')),
-                  ButtonSegment(value: 'out', label: Text('Cash Out')),
-                ],
-                selected: {_direction},
-                onSelectionChanged: isSubmitting ? null : (s) => setState(() => _direction = s.first),
-              ),
-              const SizedBox(height: 14),
-              AppTextField(
-                label: 'Amount',
-                controller: _amountController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                validator: (v) => Validators.positiveNumber(v, fieldName: 'Amount'),
-                enabled: !isSubmitting,
-              ),
-              const SizedBox(height: 14),
-              AppTextField(label: 'Note (optional)', controller: _noteController, maxLines: 2, enabled: !isSubmitting),
-            ],
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text('Type', style: Theme.of(context).textTheme.labelLarge),
+                const SizedBox(height: 6),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: SegmentedButton<String>(
+                    segments: const [
+                      ButtonSegment(value: 'cash', label: Text('Cash')),
+                      ButtonSegment(value: 'upi', label: Text('UPI')),
+                      ButtonSegment(value: 'bank', label: Text('Bank')),
+                    ],
+                    selected: {_type},
+                    onSelectionChanged: isSubmitting ? null : (s) => setState(() => _type = s.first),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Text('Direction', style: Theme.of(context).textTheme.labelLarge),
+                const SizedBox(height: 6),
+                SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment(value: 'in', label: Text('Cash In')),
+                    ButtonSegment(value: 'out', label: Text('Cash Out')),
+                  ],
+                  selected: {_direction},
+                  onSelectionChanged: isSubmitting ? null : (s) => setState(() => _direction = s.first),
+                ),
+                const SizedBox(height: 14),
+                AppTextField(
+                  label: 'Amount',
+                  controller: _amountController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  validator: (v) => Validators.positiveNumber(v, fieldName: 'Amount'),
+                  enabled: !isSubmitting,
+                ),
+                const SizedBox(height: 14),
+                AppTextField(label: 'Note (optional)', controller: _noteController, maxLines: 2, enabled: !isSubmitting),
+              ],
+            ),
           ),
         ),
       ),

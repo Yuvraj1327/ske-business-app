@@ -102,7 +102,11 @@ class _CreateReturnScreenState extends ConsumerState<CreateReturnScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text('Create Return', style: AppTextStyles.heading1),
-              Text('${sale.invoice?.invoiceNumber ?? 'Sale'} · ${sale.customerName}', style: AppTextStyles.bodySecondary),
+              Text(
+                '${sale.invoice?.invoiceNumber ?? 'Sale'} · ${sale.customerName}',
+                style: AppTextStyles.bodySecondary,
+                overflow: TextOverflow.ellipsis,
+              ),
               const SizedBox(height: 20),
               Expanded(
                 child: SingleChildScrollView(
@@ -122,16 +126,18 @@ class _CreateReturnScreenState extends ConsumerState<CreateReturnScreen> {
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text(item.productName, style: AppTextStyles.body),
+                                      Text(item.productName, style: AppTextStyles.body, overflow: TextOverflow.ellipsis),
                                       Text(
                                         'Sold: ${item.quantity} · Returnable: $returnable',
                                         style: AppTextStyles.caption,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ],
                                   ),
                                 ),
+                                const SizedBox(width: 8),
                                 SizedBox(
-                                  width: 100,
+                                  width: 90,
                                   child: TextField(
                                     controller: _controllerFor(item.id),
                                     enabled: returnable > 0,

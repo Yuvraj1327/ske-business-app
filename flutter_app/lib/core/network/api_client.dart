@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'api_config.dart';
 import 'api_exception.dart';
 
 /// Thin wrapper around Dio that:
@@ -14,7 +14,7 @@ import 'api_exception.dart';
 class ApiClient {
   ApiClient() : dio = Dio(
           BaseOptions(
-            baseUrl: dotenv.get('API_BASE_URL'),
+            baseUrl: ApiConfig.baseUrl,
             connectTimeout: const Duration(seconds: 15),
             receiveTimeout: const Duration(seconds: 20),
             headers: {'Content-Type': 'application/json'},

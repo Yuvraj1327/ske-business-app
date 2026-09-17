@@ -1,13 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_colors.dart';
-
-/// Dedicated, reusable logo slot. Currently renders a monogram placeholder
-/// so the layout looks finished today — swap in the real logo later by
-/// replacing the `child` here with `Image.asset('assets/logo.png')` (or
-/// similar); every place that shows the brand mark (nav rail, drawer header,
-/// login screen) already goes through this one widget, so that's a
-/// single-file change when the logo is ready.
+/// Dedicated, reusable logo slot — every place that shows the brand mark
+/// (nav rail, drawer header, login screen) goes through this one widget,
+/// so a rebrand is a single-file change.
 class CompanyLogoMark extends StatelessWidget {
   const CompanyLogoMark({super.key, this.size = 40, this.showWordmark = false});
 
@@ -16,22 +11,13 @@ class CompanyLogoMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final mark = Container(
-      width: size,
-      height: size,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: AppColors.primary,
-        borderRadius: BorderRadius.circular(size * 0.28),
-      ),
-      child: Text(
-        'SK',
-        style: TextStyle(
-          fontSize: size * 0.4,
-          fontWeight: FontWeight.w700,
-          letterSpacing: -0.5,
-          color: Colors.white,
-        ),
+    final mark = ClipRRect(
+      borderRadius: BorderRadius.circular(size * 0.22),
+      child: Image.asset(
+        'assets/logo.png',
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
       ),
     );
 
@@ -42,9 +28,9 @@ class CompanyLogoMark extends StatelessWidget {
       children: [
         mark,
         const SizedBox(width: 12),
-        const Text(
+        Text(
           'Sai Krishna\nEnterprises',
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, height: 1.2),
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, height: 1.2, color: Theme.of(context).textTheme.bodyLarge?.color),
         ),
       ],
     );

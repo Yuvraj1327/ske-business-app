@@ -4,14 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/auth/auth_state.dart';
+import '../../../../core/theme/theme_mode_provider.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/confirm_dialog.dart';
 import '../../../auth/data/auth_repository.dart';
 
 /// Settings — available to both Admin and Salesman alike (not permission
 /// gated, since it's account-level rather than a business feature). Covers
-/// account details, terms, basic app info, and logout. The app is
-/// light-theme-only by design, so no theme switcher is offered here.
+/// appearance (theme), account details, terms, basic app info, and logout.
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
@@ -63,6 +63,27 @@ class SettingsScreen extends ConsumerWidget {
           children: [
             Text('Settings', style: AppTextStyles.heading1),
             const SizedBox(height: 20),
+            _SettingsSection(
+              title: 'Appearance',
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Theme', style: AppTextStyles.body),
+                    SegmentedButton<ThemeMode>(
+                      segments: const [
+                        ButtonSegment(value: ThemeMode.light, label: Text('Light'), icon: Icon(Icons.light_mode_outlined, size: 16)),
+                        ButtonSegment(value: ThemeMode.dark, label: Text('Dark'), icon: Icon(Icons.dark_mode_outlined, size: 16)),
+                      ],
+                      selected: {ref.watch(themeModeProvider)},
+                      onSelectionChanged: (selection) => ref.read(themeModeProvider.notifier).setThemeMode(selection.first),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
             _SettingsSection(
               title: 'Account Details',
               child: user == null

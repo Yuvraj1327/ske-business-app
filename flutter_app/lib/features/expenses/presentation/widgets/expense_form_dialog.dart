@@ -83,8 +83,8 @@ class _ExpenseFormDialogState extends ConsumerState<_ExpenseFormDialog> {
 
     return AlertDialog(
       title: const Text('Add Expense'),
-      content: SizedBox(
-        width: 420,
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
         child: Form(
           key: _formKey,
           child: SingleChildScrollView(
@@ -141,15 +141,18 @@ class _ExpenseFormDialogState extends ConsumerState<_ExpenseFormDialog> {
                 const SizedBox(height: 14),
                 Text('Paid via (optional)', style: Theme.of(context).textTheme.labelLarge),
                 const SizedBox(height: 6),
-                SegmentedButton<String?>(
-                  segments: const [
-                    ButtonSegment(value: null, label: Text('Not yet')),
-                    ButtonSegment(value: 'cash', label: Text('Cash')),
-                    ButtonSegment(value: 'upi', label: Text('UPI')),
-                    ButtonSegment(value: 'bank', label: Text('Bank')),
-                  ],
-                  selected: {_paymentMethod},
-                  onSelectionChanged: isSubmitting ? null : (s) => setState(() => _paymentMethod = s.first),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: SegmentedButton<String?>(
+                    segments: const [
+                      ButtonSegment(value: null, label: Text('Not yet')),
+                      ButtonSegment(value: 'cash', label: Text('Cash')),
+                      ButtonSegment(value: 'upi', label: Text('UPI')),
+                      ButtonSegment(value: 'bank', label: Text('Bank')),
+                    ],
+                    selected: {_paymentMethod},
+                    onSelectionChanged: isSubmitting ? null : (s) => setState(() => _paymentMethod = s.first),
+                  ),
                 ),
               ],
             ),

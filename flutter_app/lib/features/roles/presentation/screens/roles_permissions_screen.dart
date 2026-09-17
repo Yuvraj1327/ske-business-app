@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
+import '../../../../app/theme/breakpoints.dart';
 import '../../../../core/errors/failure.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/error_view.dart';
@@ -83,112 +84,200 @@ class _RolesPermissionsScreenState extends ConsumerState<RolesPermissionsScreen>
             _pendingPermissionKeys = _selectedRole!.permissionKeys.toSet();
           }
 
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                width: 220,
-                child: Card(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: roles
-                        .map(
-                          (role) => ListTile(
-                            title: Text(Formatters.roleLabel(role.name)),
-                            subtitle: Text('${role.permissionKeys.length} permissions'),
-                            selected: _selectedRole?.id == role.id,
-                            selectedTileColor: AppColors.primary.withOpacity(0.08),
-                            onTap: () => _selectRole(role),
-                          ),
-                        )
-                        .toList(),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 20),
-              Expanded(
-                child: permissionsAsync.when(
-                  loading: () => const LoadingView(),
-                  error: (e, _) => ErrorView(failure: e is Failure ? e : Failure.unknown(e.toString())),
-                  data: (permissions) {
-                    if (_selectedRole == null) {
-                      return const Center(child: Text('No roles found.'));
-                    }
-                    final byModule = <String, List<AppPermission>>{};
-                    for (final p in permissions) {
-                      byModule.putIfAbsent(p.module, () => []).add(p);
-                    }
+          Widget buildRoleList(bool isCompact) => _RoleList(
+                roles: roles,
+                selectedRoleId: _selectedRole?.id,
+                onSelect: _selectRole,
+                isCompact: isCompact,
+              );
 
-                    return Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          final permissionsPanel = permissionsAsync.when(
+            loading: () => const LoadingView(),
+            error: (e, _) => ErrorView(failure: e is Failure ? e : Failure.unknown(e.toString())),
+            data: (permissions) {
+              if (_selectedRole == null) {
+                return const Center(child: Text('No roles found.'));
+              }
+              final byModule = <String, List<AppPermission>>{};
+              for (final p in permissions) {
+                byModule.putIfAbsent(p.module, () => []).add(p);
+              }
+
+              return Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Builder(
+                        builder: (context) {
+                          final title = Text(
+                            'Permissions for ${Formatters.roleLabel(_selectedRole!.name)}',
+                            style: AppTextStyles.heading3,
+                            overflow: TextOverflow.ellipsis,
+                          );
+                          final saveButton = ElevatedButton(
+                            onPressed: _isSaving ? null : () => _save(permissions),
+                            child: _isSaving
+                                ? const SizedBox(
+                                    height: 18,
+                                    width: 18,
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                  )
+                                : const Text('Save Changes'),
+                          );
+
+                          return LayoutBuilder(
+                            builder: (context, constraints) {
+                              // heading + button on one line only has room
+                              // for a couple of words of the role name
+                              // before "Save Changes" forces an ellipsis —
+                              // stack them on narrow widths instead.
+                              if (constraints.maxWidth < 360) {
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [title, const SizedBox(height: 10), saveButton],
+                                );
+                              }
+                              return Row(
+                                children: [
+                                  Expanded(child: title),
+                                  const SizedBox(width: 12),
+                                  saveButton,
+                                ],
+                              );
+                            },
+                          );
+                        },
+                      ),
+                      const Divider(height: 24),
+                      Expanded(
+                        child: ListView(
+                          children: byModule.entries.map((entry) {
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('Permissions for ${Formatters.roleLabel(_selectedRole!.name)}', style: AppTextStyles.heading2),
-                                ElevatedButton(
-                                  onPressed: _isSaving ? null : () => _save(permissions),
-                                  child: _isSaving
-                                      ? const SizedBox(
-                                          height: 18,
-                                          width: 18,
-                                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                        )
-                                      : const Text('Save Changes'),
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 12, bottom: 4),
+                                  child: Text(
+                                    entry.key.toUpperCase(),
+                                    style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.w700),
+                                  ),
+                                ),
+                                ...entry.value.map(
+                                  (perm) => CheckboxListTile(
+                                    controlAffinity: ListTileControlAffinity.leading,
+                                    title: Text(perm.key, overflow: TextOverflow.ellipsis),
+                                    subtitle: perm.description != null
+                                        ? Text(perm.description!, overflow: TextOverflow.ellipsis, maxLines: 2)
+                                        : null,
+                                    value: _pendingPermissionKeys.contains(perm.key),
+                                    onChanged: (checked) {
+                                      setState(() {
+                                        if (checked == true) {
+                                          _pendingPermissionKeys.add(perm.key);
+                                        } else {
+                                          _pendingPermissionKeys.remove(perm.key);
+                                        }
+                                      });
+                                    },
+                                  ),
                                 ),
                               ],
-                            ),
-                            const Divider(height: 24),
-                            Expanded(
-                              child: ListView(
-                                children: byModule.entries.map((entry) {
-                                  return Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Padding(
-                                        padding: const EdgeInsets.only(top: 12, bottom: 4),
-                                        child: Text(
-                                          entry.key.toUpperCase(),
-                                          style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.w700),
-                                        ),
-                                      ),
-                                      ...entry.value.map(
-                                        (perm) => CheckboxListTile(
-                                          dense: true,
-                                          contentPadding: EdgeInsets.zero,
-                                          controlAffinity: ListTileControlAffinity.leading,
-                                          title: Text(perm.key),
-                                          subtitle: perm.description != null ? Text(perm.description!) : null,
-                                          value: _pendingPermissionKeys.contains(perm.key),
-                                          onChanged: (checked) {
-                                            setState(() {
-                                              if (checked == true) {
-                                                _pendingPermissionKeys.add(perm.key);
-                                              } else {
-                                                _pendingPermissionKeys.remove(perm.key);
-                                              }
-                                            });
-                                          },
-                                        ),
-                                      ),
-                                    ],
-                                  );
-                                }).toList(),
-                              ),
-                            ),
-                          ],
+                            );
+                          }).toList(),
                         ),
                       ),
-                    );
-                  },
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              );
+            },
+          );
+
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              // The role list + permissions panel need real width for the
+              // permission descriptions to stay readable — below `compact`
+              // a fixed 220px side panel leaves almost nothing for the
+              // permissions column, so stack them instead and let the role
+              // picker scroll horizontally.
+              if (constraints.maxWidth < AppBreakpoints.compact) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SizedBox(height: 96, child: buildRoleList(true)),
+                    const SizedBox(height: 16),
+                    Expanded(child: permissionsPanel),
+                  ],
+                );
+              }
+
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(width: 220, child: buildRoleList(false)),
+                  const SizedBox(width: 20),
+                  Expanded(child: permissionsPanel),
+                ],
+              );
+            },
           );
         },
+      ),
+    );
+  }
+}
+
+/// Role picker — a vertical card of `ListTile`s on wide screens, a
+/// horizontally-scrolling row of choice chips on narrow ones (a 220px
+/// vertical panel would leave almost no room for the permissions list on a
+/// phone).
+class _RoleList extends StatelessWidget {
+  const _RoleList({
+    required this.roles,
+    required this.selectedRoleId,
+    required this.onSelect,
+    required this.isCompact,
+  });
+
+  final List<AppRole> roles;
+  final String? selectedRoleId;
+  final ValueChanged<AppRole> onSelect;
+  final bool isCompact;
+
+  @override
+  Widget build(BuildContext context) {
+    if (isCompact) {
+      return ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: roles.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, i) {
+          final role = roles[i];
+          return ChoiceChip(
+            label: Text(Formatters.roleLabel(role.name)),
+            selected: selectedRoleId == role.id,
+            onSelected: (_) => onSelect(role),
+          );
+        },
+      );
+    }
+
+    return Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: roles
+            .map(
+              (role) => ListTile(
+                title: Text(Formatters.roleLabel(role.name), overflow: TextOverflow.ellipsis),
+                subtitle: Text('${role.permissionKeys.length} permissions'),
+                selected: selectedRoleId == role.id,
+                selectedTileColor: AppColors.primary.withOpacity(0.08),
+                onTap: () => onSelect(role),
+              ),
+            )
+            .toList(),
       ),
     );
   }

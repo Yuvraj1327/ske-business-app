@@ -41,8 +41,11 @@ class ReturnsListScreen extends ConsumerWidget {
                   itemBuilder: (context, index) {
                     final ret = page.items[index];
                     return ListTile(
-                      title: Text(ret.customerName),
-                      subtitle: Text('${Formatters.date(ret.returnDate)}${ret.reason != null ? ' · ${ret.reason}' : ''}'),
+                      title: Text(ret.customerName, overflow: TextOverflow.ellipsis),
+                      subtitle: Text(
+                        '${Formatters.date(ret.returnDate)}${ret.reason != null ? ' · ${ret.reason}' : ''}',
+                        overflow: TextOverflow.ellipsis,
+                      ),
                       trailing: Text(Formatters.currency(ret.totalReturnAmount)),
                       onTap: () => context.go('/sales/${ret.saleId}'),
                     );

@@ -133,8 +133,8 @@ class _SalesReportView extends ConsumerWidget {
                 itemBuilder: (context, i) {
                   final s = report.items[i];
                   return ListTile(
-                    title: Text(s.customerName),
-                    subtitle: Text('${s.invoiceNumber ?? 'No invoice'} · ${Formatters.date(s.saleDate)}'),
+                    title: Text(s.customerName, overflow: TextOverflow.ellipsis),
+                    subtitle: Text('${s.invoiceNumber ?? 'No invoice'} · ${Formatters.date(s.saleDate)}', overflow: TextOverflow.ellipsis),
                     trailing: Text(Formatters.currency(s.totalAmount)),
                   );
                 },
@@ -162,15 +162,19 @@ class _CustomerReportView extends ConsumerWidget {
           itemBuilder: (context, i) {
             final row = rows[i];
             return ListTile(
-              title: Text(row.customerName),
+              title: Text(row.customerName, overflow: TextOverflow.ellipsis),
               subtitle: Text('${row.salesCount} sale(s)'),
               trailing: Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(Formatters.currency(row.salesTotal), style: AppTextStyles.body),
+                  Text(Formatters.currency(row.salesTotal), style: AppTextStyles.body, overflow: TextOverflow.ellipsis),
                   if (row.outstanding > 0)
-                    Text('Owes ${Formatters.currency(row.outstanding)}', style: AppTextStyles.caption.copyWith(color: AppColors.error)),
+                    Text(
+                      'Owes ${Formatters.currency(row.outstanding)}',
+                      style: AppTextStyles.caption.copyWith(color: AppColors.error),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                 ],
               ),
             );
@@ -202,7 +206,7 @@ class _BreakdownReportView extends ConsumerWidget {
           itemBuilder: (context, i) {
             final row = breakdown[i];
             return ListTile(
-              title: Text(row.label.toString().replaceAll('_', ' ').toUpperCase()),
+              title: Text(row.label.toString().replaceAll('_', ' ').toUpperCase(), overflow: TextOverflow.ellipsis),
               subtitle: Text('${row.count} entries'),
               trailing: Text(Formatters.currency(row.total), style: AppTextStyles.heading3),
             );
@@ -234,7 +238,7 @@ class _OutstandingReportView extends ConsumerWidget {
                 itemBuilder: (context, i) {
                   final row = report.items[i];
                   return ListTile(
-                    title: Text(row.customerName),
+                    title: Text(row.customerName, overflow: TextOverflow.ellipsis),
                     subtitle: Text(row.phone ?? '—'),
                     trailing: Text(Formatters.currency(row.outstanding), style: TextStyle(color: AppColors.error, fontWeight: FontWeight.w600)),
                   );
@@ -263,14 +267,18 @@ class _SalesmanReportView extends ConsumerWidget {
           itemBuilder: (context, i) {
             final row = rows[i];
             return ListTile(
-              title: Text(row.salesmanName),
-              subtitle: Text('${row.customersCount} customers · ${row.salesCount} sales'),
+              title: Text(row.salesmanName, overflow: TextOverflow.ellipsis),
+              subtitle: Text('${row.customersCount} customers · ${row.salesCount} sales', overflow: TextOverflow.ellipsis),
               trailing: Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(Formatters.currency(row.salesTotal)),
-                  Text('Outstanding: ${Formatters.currency(row.outstandingTotal)}', style: AppTextStyles.caption),
+                  Text(Formatters.currency(row.salesTotal), overflow: TextOverflow.ellipsis),
+                  Text(
+                    'Outstanding: ${Formatters.currency(row.outstandingTotal)}',
+                    style: AppTextStyles.caption,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ],
               ),
             );
@@ -307,7 +315,10 @@ class _TransactionReportView extends ConsumerWidget {
                   separatorBuilder: (_, __) => const Divider(height: 1),
                   itemBuilder: (context, i) {
                     final row = report.breakdown[i];
-                    return ListTile(title: Text(row.label.toUpperCase()), trailing: Text(Formatters.currency(row.total)));
+                    return ListTile(
+                      title: Text(row.label.toUpperCase(), overflow: TextOverflow.ellipsis),
+                      trailing: Text(Formatters.currency(row.total)),
+                    );
                   },
                 ),
               ),
@@ -323,7 +334,7 @@ Widget _summaryRow(BuildContext context, List<Widget> stats) {
     color: context.subtleSurface,
     child: Padding(
       padding: const EdgeInsets.all(14),
-      child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: stats),
+      child: Row(children: [for (final stat in stats) Expanded(child: stat)]),
     ),
   );
 }
@@ -331,9 +342,9 @@ Widget _summaryRow(BuildContext context, List<Widget> stats) {
 Widget _summaryStat(String label, String value) {
   return Column(
     children: [
-      Text(label, style: AppTextStyles.caption),
+      Text(label, style: AppTextStyles.caption, overflow: TextOverflow.ellipsis, maxLines: 1),
       const SizedBox(height: 4),
-      Text(value, style: AppTextStyles.heading3),
+      Text(value, style: AppTextStyles.heading3, overflow: TextOverflow.ellipsis, maxLines: 1),
     ],
   );
 }
