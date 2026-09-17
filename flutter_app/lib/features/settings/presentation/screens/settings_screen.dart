@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/shell/company_logo_mark.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/auth/auth_state.dart';
@@ -9,9 +10,10 @@ import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/confirm_dialog.dart';
 import '../../../auth/data/auth_repository.dart';
 
-/// Settings — available to both Admin and Salesman alike (not permission
-/// gated, since it's account-level rather than a business feature). Covers
-/// appearance (theme), account details, terms, basic app info, and logout.
+/// Settings — available to both Admin and Salesman/Delivery Agent alike
+/// (not permission gated, since it's account-level rather than a business
+/// feature). Covers account details, theme, terms, basic app info, and
+/// logout.
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
@@ -50,9 +52,21 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
+  String _themeModeLabel(ThemeMode mode) {
+    switch (mode) {
+      case ThemeMode.light:
+        return 'Light';
+      case ThemeMode.dark:
+        return 'Dark';
+      case ThemeMode.system:
+        return 'System';
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider).valueOrNull;
+    final themeMode = ref.watch(themeModeProvider);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -61,29 +75,14 @@ class SettingsScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Settings', style: AppTextStyles.heading1),
-            const SizedBox(height: 20),
-            _SettingsSection(
-              title: 'Appearance',
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Theme', style: AppTextStyles.body),
-                    SegmentedButton<ThemeMode>(
-                      segments: const [
-                        ButtonSegment(value: ThemeMode.light, label: Text('Light'), icon: Icon(Icons.light_mode_outlined, size: 16)),
-                        ButtonSegment(value: ThemeMode.dark, label: Text('Dark'), icon: Icon(Icons.dark_mode_outlined, size: 16)),
-                      ],
-                      selected: {ref.watch(themeModeProvider)},
-                      onSelectionChanged: (selection) => ref.read(themeModeProvider.notifier).setThemeMode(selection.first),
-                    ),
-                  ],
-                ),
-              ),
+            Row(
+              children: [
+                const CompanyLogoMark(size: 40),
+                const SizedBox(width: 12),
+                Text('Settings', style: AppTextStyles.heading1),
+              ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
             _SettingsSection(
               title: 'Account Details',
               child: user == null
@@ -96,6 +95,34 @@ class SettingsScreen extends ConsumerWidget {
                         _infoRow('Permissions granted', '${user.permissions.length}'),
                       ],
                     ),
+            ),
+            const SizedBox(height: 16),
+            _SettingsSection(
+              title: 'Appearance',
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Theme', style: AppTextStyles.bodySecondary),
+                    const SizedBox(height: 10),
+                    SegmentedButton<ThemeMode>(
+                      segments: const [
+                        ButtonSegment(value: ThemeMode.light, icon: Icon(Icons.light_mode_outlined), label: Text('Light')),
+                        ButtonSegment(value: ThemeMode.dark, icon: Icon(Icons.dark_mode_outlined), label: Text('Dark')),
+                        ButtonSegment(value: ThemeMode.system, icon: Icon(Icons.brightness_auto_outlined), label: Text('System')),
+                      ],
+                      selected: {themeMode},
+                      onSelectionChanged: (selection) => ref.read(themeModeProvider.notifier).setThemeMode(selection.first),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Currently using: ${_themeModeLabel(themeMode)}. This choice is saved on this device.',
+                      style: AppTextStyles.caption,
+                    ),
+                  ],
+                ),
+              ),
             ),
             const SizedBox(height: 16),
             _SettingsSection(

@@ -1,0 +1,76 @@
+BRANDING SETUP — ONE-TIME STEPS AFTER APPLYING THIS DELTA
+============================================================
+
+1. Confirm assets/logo.png is in place
+   ------------------------------------
+   You said it's already at flutter_app/assets/logo.png — pubspec.yaml now
+   declares it under `flutter: assets:`, and the app's CompanyLogoMark
+   widget (used on Login, Sidebar/Drawer, AppBar area, and Settings) now
+   loads it via Image.asset('assets/logo.png'). If the file isn't at that
+   exact path, the widget falls back to a plain "SK" monogram instead of
+   crashing — so double check the path if you don't see the real logo.
+
+2. Generate the Android launcher icon, Web favicon/app icons, and splash
+   screen from the same logo (this is what makes it "appear in release
+   builds", since these are real per-density files written into android/
+   and web/, not just an in-app widget):
+
+       cd flutter_app
+       flutter pub get
+       flutter pub run flutter_launcher_icons
+       flutter pub run flutter_native_splash:create
+
+   Both tools are already configured in pubspec.yaml to read
+   assets/logo.png and use your brand navy (#173B63) as the theme/splash
+   background accent. Re-run these two commands any time you replace the
+   logo file.
+
+3. Rebuild
+   -------
+       flutter run            # or flutter build apk / flutter build web
+
+WHY I DIDN'T GENERATE THE ICON FILES MYSELF
+============================================================
+I don't have your project's android/ or web/ platform folders in my build
+environment (only the lib/ Dart source is tracked here) — I can't write
+per-density PNGs into folders I don't have. Configuring
+flutter_launcher_icons/flutter_native_splash in pubspec.yaml is also the
+correct, standard way to do this in Flutter (rather than hand-copying
+resized PNGs into mipmap folders), and it's a one-time, two-command step
+on your end.
+
+WHAT ELSE CHANGED IN THIS DELTA
+============================================================
+- New brand palette (Navy #173B63 / Blue #2563A8 / Teal #16A085), used
+  selectively — see app_colors.dart's doc comment for exactly where.
+- Dark theme is back (it was removed in a prior pass per an earlier
+  explicit instruction, now restored per this task's request), persisted
+  via the same flutter_secure_storage dependency already in use — Settings
+  → Appearance → Light/Dark/System.
+- While restoring dark mode, I found and fixed 4 pre-existing spots that
+  hardcoded a light-mode-only navy color as TEXT/ICON foreground (not just
+  background) — these would have been unreadable on a dark card:
+  SummaryCard's default icon color, the new QuickActionButton, the
+  Salesman performance stat cards, the Transactions "Net" tile, and the
+  Roles screen's selected-role tile tint. All now resolve the theme's
+  actual primary color at render time instead of a hardcoded constant.
+- Redesigned Dashboard: compact tinted header banner, a permission-gated
+  Quick Actions row (New Sale / Record Payment / Add Customer — reusing
+  existing routes/dialogs, no new screens), tighter 2-up KPI grid on
+  mobile, and a "Recent Activity" list of the 5 most recent sales (reusing
+  the same salesListProvider the Sales screen already uses).
+- Verified: brace-balance + import checks on all 14 files, all 33 backend
+  tests still pass (no backend files were touched).
+
+WHAT I COULD NOT VERIFY
+============================================================
+No Flutter SDK in my sandbox, so none of this was visually rendered or
+run — please `flutter pub get && flutter run` and click through Login,
+Dashboard (both light and dark), Sidebar, and Settings before treating
+this as final. Also worth a special look: I did not exhaustively audit
+every screen in the app for the same "hardcoded AppColors.primary as
+text/icon color" pattern — I fixed every instance I found via a full
+grep sweep, but a screen I didn't touch this session (i.e. one I haven't
+edited in any recent turn) could still have an isolated case. If you spot
+low-contrast text anywhere in dark mode, it's almost certainly this exact
+pattern and an easy one-line fix — send me a screenshot and I'll patch it.

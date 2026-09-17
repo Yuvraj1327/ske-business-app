@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
 
 /// A single dashboard metric card. Uses a left accent bar keyed to the
@@ -15,7 +14,7 @@ class SummaryCard extends StatelessWidget {
     required this.label,
     required this.value,
     required this.icon,
-    this.iconColor = AppColors.primary,
+    this.iconColor,
     this.subtitle,
     this.isHero = false,
   });
@@ -23,26 +22,25 @@ class SummaryCard extends StatelessWidget {
   final String label;
   final String value;
   final IconData icon;
-  final Color iconColor;
+  /// When omitted, resolves to the current theme's primary color (correct
+  /// for both light and dark) rather than a hardcoded light-mode constant.
+  final Color? iconColor;
   final String? subtitle;
   final bool isHero;
 
   @override
   Widget build(BuildContext context) {
+    final resolvedIconColor = iconColor ?? Theme.of(context).colorScheme.primary;
+
     return Card(
       clipBehavior: Clip.antiAlias,
-      color: isHero ? iconColor.withOpacity(0.07) : null,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: isHero ? iconColor.withOpacity(0.25) : Theme.of(context).dividerColor),
-      ),
       child: IntrinsicHeight(
         child: Row(
           children: [
-            Container(width: 4, color: iconColor),
+            Container(width: 4, color: resolvedIconColor),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
@@ -50,22 +48,22 @@ class SummaryCard extends StatelessWidget {
                     Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(color: iconColor.withOpacity(0.12), borderRadius: BorderRadius.circular(8)),
-                          child: Icon(icon, size: 16, color: iconColor),
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(color: resolvedIconColor.withOpacity(0.12), shape: BoxShape.circle),
+                          child: Icon(icon, size: 17, color: resolvedIconColor),
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(child: Text(label, style: AppTextStyles.bodySecondary, overflow: TextOverflow.ellipsis)),
+                        const SizedBox(width: 10),
+                        Expanded(child: Text(label, style: AppTextStyles.bodySecondary)),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 10),
                     Text(
                       value,
-                      style: isHero ? AppTextStyles.amountLarge : AppTextStyles.amount,
+                      style: isHero ? AppTextStyles.amountLarge : AppTextStyles.heading1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     if (subtitle != null) ...[
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 3),
                       Text(subtitle!, style: AppTextStyles.caption, overflow: TextOverflow.ellipsis),
                     ],
                   ],

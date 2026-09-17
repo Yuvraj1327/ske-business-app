@@ -1,34 +1,31 @@
 import 'package:flutter/material.dart';
 
-/// Centralized color palette — "Ledger Clarity" direction: a light,
-/// paperwork-clean canvas with brand accents pulled from the SK logo
-/// (navy/blue/teal), used sparingly for emphasis — primary actions, active
-/// navigation, icon accents and financial/success states. Never inline hex
-/// colors in feature widgets — reference these instead, so a rebrand only
-/// touches this one file.
-///
-/// Ships both a light palette (default) and a dark palette. Brand colors
-/// (primary/accent/success/warning/error) are shared across both — only
-/// backgrounds/surfaces/text/divider differ, so switching theme never
-/// changes what "the brand" looks like, only the canvas it sits on.
+/// Centralized color palette — brand direction built around the SK logo's
+/// three colors (Navy #173B63, Blue #2563A8, Teal #16A085), used
+/// selectively rather than everywhere: backgrounds and cards stay
+/// white/light-neutral, and the brand colors are reserved for primary
+/// buttons, active navigation, important icons, selected states, and
+/// financial highlights. Never inline hex colors in feature widgets —
+/// reference these instead, so a future rebrand only touches this file.
 class AppColors {
   AppColors._();
 
-  static const Color primary = Color(0xFF173B63); // SK logo navy
-  static const Color primaryDark = Color(0xFF102944);
-  static const Color accent = Color(0xFF2563A8); // SK logo blue — sparing emphasis only
+  static const Color primary = Color(0xFF173B63); // Navy — buttons, active nav, headings emphasis
+  static const Color primaryDark = Color(0xFF0F2645);
+  static const Color accent = Color(0xFF2563A8); // Blue — secondary actions, links, selected chips
+  static const Color highlight = Color(0xFF16A085); // Teal — financial highlights (paid/positive figures)
 
-  static const Color background = Color(0xFFF6F4EF); // warm canvas, not cold grey
+  static const Color background = Color(0xFFF6F7F9); // cool light-neutral canvas
   static const Color surface = Colors.white;
 
   static const Color textPrimary = Color(0xFF1A1D23);
-  static const Color textSecondary = Color(0xFF6B7280);
-  static const Color divider = Color(0xFFE7E2D8);
+  static const Color textSecondary = Color(0xFF667085);
+  static const Color divider = Color(0xFFE4E7EC);
 
-  static const Color success = Color(0xFF16A085); // SK logo teal — financial/success states
-  static const Color warning = Color(0xFFB7791F);
-  static const Color error = Color(0xFFC0392B);
-  static const Color info = Color(0xFF2563A8); // SK logo blue
+  static const Color success = highlight; // reuses brand teal for "paid"/positive
+  static const Color warning = Color(0xFFC08A1E);
+  static const Color error = Color(0xFFD64545);
+  static const Color info = accent;
 
   // Status badge colors (payment status, cheque status, task status, etc.)
   static const Color statusPaid = success;
@@ -36,11 +33,23 @@ class AppColors {
   static const Color statusUnpaid = error;
   static const Color statusPending = warning;
   static const Color statusCancelled = Color(0xFF8B8F98);
+}
 
-  // Dark theme surface/text tokens — brand colors above are reused as-is.
-  static const Color darkBackground = Color(0xFF10151C);
-  static const Color darkSurface = Color(0xFF1A222D);
-  static const Color darkTextPrimary = Color(0xFFEAEDF1);
-  static const Color darkTextSecondary = Color(0xFF9AA6B2);
-  static const Color darkDivider = Color(0xFF2B3542);
+/// Dark-mode surface/background values, consumed only by `AppTheme.dark`'s
+/// ColorScheme (see app_theme.dart) — kept separate from [AppColors]
+/// because dark mode needs different structural values (backgrounds/
+/// surfaces invert), not different semantic/status values (those stay
+/// legible as-is on both, since they're always shown inside a tinted,
+/// low-opacity chip rather than as a solid background).
+class AppColorsDark {
+  AppColorsDark._();
+
+  static const Color background = Color(0xFF0E1420);
+  static const Color surface = Color(0xFF161D2B);
+  static const Color surfaceVariant = Color(0xFF1E2637);
+  static const Color primary = Color(0xFF6FA8DC); // lightened Blue — legible on dark
+  static const Color accent = Color(0xFF35C29B); // lightened Teal for dark contrast
+  static const Color textPrimary = Color(0xFFEDEFF3);
+  static const Color textSecondary = Color(0xFF98A2B3);
+  static const Color divider = Color(0xFF29303F);
 }

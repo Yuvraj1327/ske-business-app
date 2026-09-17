@@ -4,11 +4,10 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 const _themeModeStorageKey = 'ske_theme_mode';
 
-/// Persists the user's Light/Dark theme choice using the same secure
-/// storage already declared as a dependency for the app (previously
-/// unused) — no new package added. Falls back to [ThemeMode.light] (the
-/// app's default) on first launch or if reading storage fails for any
-/// reason.
+/// Persists the user's Light/Dark/System choice using the same secure
+/// storage already declared as a dependency for the app — no new package
+/// added. Falls back to [ThemeMode.light] (the app's default) on first
+/// launch or if reading storage fails for any reason.
 class ThemeModeController extends Notifier<ThemeMode> {
   final _storage = const FlutterSecureStorage();
 

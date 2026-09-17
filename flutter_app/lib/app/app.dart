@@ -5,8 +5,8 @@ import '../core/theme/theme_mode_provider.dart';
 import 'router.dart';
 import 'theme/app_theme.dart';
 
-/// Light theme is the default; Settings lets the user switch to Dark, and
-/// the choice persists via [themeModeProvider].
+/// Light theme is the default; Dark theme is available via Settings and
+/// persists across restarts (see theme_mode_provider.dart).
 class SkeApp extends ConsumerWidget {
   const SkeApp({super.key});
 

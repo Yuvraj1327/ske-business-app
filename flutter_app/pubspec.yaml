@@ -40,8 +40,52 @@ dev_dependencies:
   flutter_lints: ^4.0.0
   mocktail: ^1.0.4
 
+  # Branding: generate the real Android launcher icon / web favicon / splash
+  # screen from the SK logo. These are dev tools that write generated files
+  # into android/ and web/ when run — they don't ship in the app bundle
+  # themselves. Run after `flutter pub get`:
+  #   flutter pub run flutter_launcher_icons
+  #   flutter pub run flutter_native_splash:create
+  flutter_launcher_icons: ^0.14.1
+  flutter_native_splash: ^2.4.1
+
 flutter:
   uses-material-design: true
   assets:
     - .env
     - assets/logo.png
+
+# Configuration consumed by the `flutter_launcher_icons` dev-tool above —
+# generates the Android launcher icon (and web app icons) from the same SK
+# logo used in-app, so branding is consistent everywhere including release
+# builds. iOS/macOS/Windows are left disabled since this project targets
+# Android + Web (see README).
+flutter_launcher_icons:
+  android: true
+  ios: false
+  macos:
+    generate: false
+  windows:
+    generate: false
+  image_path: "assets/logo.png"
+  min_sdk_android: 21
+  web:
+    generate: true
+    image_path: "assets/logo.png"
+    background_color: "#ffffff"
+    theme_color: "#173B63"
+
+# Configuration consumed by the `flutter_native_splash` dev-tool above —
+# generates the native splash screen (shown before Flutter itself has
+# started) from the same SK logo, for both light and dark launch.
+flutter_native_splash:
+  color: "#ffffff"
+  image: assets/logo.png
+  color_dark: "#0E1420"
+  image_dark: assets/logo.png
+  android_12:
+    image: assets/logo.png
+    color: "#ffffff"
+    image_dark: assets/logo.png
+    color_dark: "#0E1420"
+  web: true

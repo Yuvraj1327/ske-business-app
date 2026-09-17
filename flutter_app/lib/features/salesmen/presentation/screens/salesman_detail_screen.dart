@@ -89,17 +89,15 @@ class _SalesmanDetailScreenState extends ConsumerState<SalesmanDetailScreen> wit
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Assign Task'),
-        content: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 380),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                AppTextField(label: 'Title', controller: titleController),
-                const SizedBox(height: 12),
-                AppTextField(label: 'Description (optional)', controller: descController, maxLines: 2),
-              ],
-            ),
+        content: SizedBox(
+          width: 380,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AppTextField(label: 'Title', controller: titleController),
+              const SizedBox(height: 12),
+              AppTextField(label: 'Description (optional)', controller: descController, maxLines: 2),
+            ],
           ),
         ),
         actions: [
@@ -176,28 +174,28 @@ class _PerformanceTab extends StatelessWidget {
         physics: const NeverScrollableScrollPhysics(),
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
-        childAspectRatio: 1.5,
+        childAspectRatio: 1.8,
         children: [
-          _statCard('Assigned Customers', '${performance.customersCount}', Icons.people_outline),
-          _statCard('Sales', '${performance.salesCount}', Icons.point_of_sale_outlined),
-          _statCard('Sales Total', Formatters.currency(performance.salesTotal), Icons.payments_outlined),
-          _statCard('Outstanding', Formatters.currency(performance.outstandingTotal), Icons.hourglass_bottom_outlined),
+          _statCard(context, 'Assigned Customers', '${performance.customersCount}', Icons.people_outline),
+          _statCard(context, 'Sales', '${performance.salesCount}', Icons.point_of_sale_outlined),
+          _statCard(context, 'Sales Total', Formatters.currency(performance.salesTotal), Icons.payments_outlined),
+          _statCard(context, 'Outstanding', Formatters.currency(performance.outstandingTotal), Icons.hourglass_bottom_outlined),
         ],
       ),
     );
   }
 
-  Widget _statCard(String label, String value, IconData icon) {
+  Widget _statCard(BuildContext context, String label, String value, IconData icon) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, size: 20, color: AppColors.primary),
+            Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
             const SizedBox(height: 8),
-            Text(value, style: AppTextStyles.heading2, overflow: TextOverflow.ellipsis, maxLines: 1),
-            Text(label, style: AppTextStyles.caption, overflow: TextOverflow.ellipsis, maxLines: 1),
+            Text(value, style: AppTextStyles.heading2),
+            Text(label, style: AppTextStyles.caption),
           ],
         ),
       ),

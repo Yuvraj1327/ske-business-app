@@ -2,58 +2,67 @@ import 'package:flutter/material.dart';
 
 import 'app_colors.dart';
 
-/// Builds the app's ThemeData from the "Ledger Clarity" token system (see
-/// AppColors doc comment). Structural chrome — app bars, cards, buttons,
-/// inputs, nav — all read their colors from Theme.of(context) rather than
-/// hardcoding AppColors.* directly, which is what keeps every screen
-/// visually consistent from one central place.
-///
-/// [light] and [dark] both go through [_build] with a different set of
-/// canvas tokens, so the two themes can never structurally drift apart —
-/// only backgrounds/surfaces/text differ, brand colors stay identical.
+/// Builds the app's light and dark ThemeData from the brand token system
+/// (see AppColors doc comment). Structural chrome — app bars, cards,
+/// buttons, inputs, nav — all read their colors from Theme.of(context)
+/// rather than hardcoding AppColors.* directly, which is what keeps every
+/// screen visually consistent (and correctly readable in both themes) from
+/// one central place. See app_text_styles.dart for why primary text styles
+/// deliberately don't hardcode a color — that's what makes dark mode work
+/// correctly across every screen without per-screen edits.
 class AppTheme {
   AppTheme._();
 
   static ThemeData get light => _build(
         brightness: Brightness.light,
-        background: AppColors.background,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: AppColors.primary,
+          brightness: Brightness.light,
+          primary: AppColors.primary,
+          secondary: AppColors.accent,
+          tertiary: AppColors.highlight,
+          error: AppColors.error,
+          surface: AppColors.surface,
+        ),
+        scaffoldBackground: AppColors.background,
         surface: AppColors.surface,
+        divider: AppColors.divider,
         textPrimary: AppColors.textPrimary,
         textSecondary: AppColors.textSecondary,
-        divider: AppColors.divider,
       );
 
   static ThemeData get dark => _build(
         brightness: Brightness.dark,
-        background: AppColors.darkBackground,
-        surface: AppColors.darkSurface,
-        textPrimary: AppColors.darkTextPrimary,
-        textSecondary: AppColors.darkTextSecondary,
-        divider: AppColors.darkDivider,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: AppColorsDark.primary,
+          brightness: Brightness.dark,
+          primary: AppColorsDark.primary,
+          secondary: AppColorsDark.accent,
+          tertiary: AppColorsDark.accent,
+          error: AppColors.error,
+          surface: AppColorsDark.surface,
+        ),
+        scaffoldBackground: AppColorsDark.background,
+        surface: AppColorsDark.surface,
+        divider: AppColorsDark.divider,
+        textPrimary: AppColorsDark.textPrimary,
+        textSecondary: AppColorsDark.textSecondary,
       );
 
   static ThemeData _build({
     required Brightness brightness,
-    required Color background,
+    required ColorScheme colorScheme,
+    required Color scaffoldBackground,
     required Color surface,
+    required Color divider,
     required Color textPrimary,
     required Color textSecondary,
-    required Color divider,
   }) {
-    final colorScheme = ColorScheme.fromSeed(
-      seedColor: AppColors.primary,
-      brightness: brightness,
-      primary: AppColors.primary,
-      secondary: AppColors.accent,
-      error: AppColors.error,
-      surface: surface,
-    );
-
     final base = ThemeData(
       useMaterial3: true,
       brightness: brightness,
       colorScheme: colorScheme,
-      scaffoldBackgroundColor: background,
+      scaffoldBackgroundColor: scaffoldBackground,
       fontFamily: 'Roboto',
     );
 
@@ -99,7 +108,7 @@ class AppTheme {
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: colorScheme.primary,
-          foregroundColor: Colors.white,
+          foregroundColor: brightness == Brightness.light ? Colors.white : AppColorsDark.background,
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
@@ -119,11 +128,11 @@ class AppTheme {
         selectedLabelTextStyle: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.w600, fontSize: 12),
         unselectedIconTheme: IconThemeData(color: textSecondary),
         unselectedLabelTextStyle: TextStyle(color: textSecondary, fontSize: 12),
-        indicatorColor: colorScheme.primary.withOpacity(0.14),
+        indicatorColor: colorScheme.primary.withOpacity(0.10),
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: surface,
-        indicatorColor: colorScheme.primary.withOpacity(0.18),
+        indicatorColor: colorScheme.primary.withOpacity(0.14),
         iconTheme: WidgetStateProperty.resolveWith(
           (states) => IconThemeData(color: states.contains(WidgetState.selected) ? colorScheme.primary : textSecondary),
         ),
@@ -134,6 +143,12 @@ class AppTheme {
             color: states.contains(WidgetState.selected) ? colorScheme.primary : textSecondary,
           ),
         ),
+      ),
+      chipTheme: base.chipTheme.copyWith(
+        selectedColor: colorScheme.primary.withOpacity(0.12),
+        backgroundColor: surface,
+        side: BorderSide(color: divider),
+        labelStyle: TextStyle(color: textPrimary, fontSize: 13),
       ),
       dividerTheme: DividerThemeData(color: divider, thickness: 1),
       textTheme: base.textTheme.apply(bodyColor: textPrimary, displayColor: textPrimary),
