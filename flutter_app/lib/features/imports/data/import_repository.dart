@@ -11,15 +11,18 @@ class ImportRepository {
 
   /// Uploads the file and returns immediately with a 'queued' job — actual
   /// parsing happens server-side in a background task. Poll [getJob] for
-  /// progress, or just re-fetch [listJobs].
+  /// progress, or just re-fetch [listJobs]. `deliveryAgentId` is required
+  /// (validated server-side) when `entityType == 'picklists'`.
   Future<ImportJob> uploadFile({
     required String entityType,
     required List<int> fileBytes,
     required String fileName,
+    String? deliveryAgentId,
   }) async {
     final formData = FormData.fromMap({
       'entity_type': entityType,
       'file': MultipartFile.fromBytes(fileBytes, filename: fileName),
+      if (deliveryAgentId != null) 'delivery_agent_id': deliveryAgentId,
     });
     final response = await _apiClient.post<Map<String, dynamic>>('/imports/upload', data: formData);
     return ImportJob.fromJson(response.data!);

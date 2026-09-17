@@ -35,4 +35,7 @@ class Permission {
   static const reportsView = 'reports.view';
   static const importsManage = 'imports.manage';
   static const dashboardView = 'dashboard.view';
+
+  static const picklistsManage = 'picklists.manage';
+  static const picklistsViewAssigned = 'picklists.view_assigned';
 }

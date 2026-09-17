@@ -6,8 +6,6 @@ import '../../core/auth/auth_state.dart';
 import '../../core/permissions/permission.dart';
 import '../../core/permissions/permission_provider.dart';
 import '../../features/auth/domain/app_user.dart';
-import '../theme/app_colors.dart';
-import '../theme/breakpoints.dart';
 import 'company_logo_mark.dart';
 
 class _NavItem {
@@ -61,6 +59,7 @@ const _allSidebarNavItems = [
   _NavItem(path: '/salesmen', label: 'Salesmen', icon: Icons.badge_outlined, requiredPermission: Permission.salesmenManage),
   _NavItem(path: '/reports', label: 'Reports', icon: Icons.bar_chart_outlined, requiredPermission: Permission.reportsView),
   _NavItem(path: '/imports', label: 'Excel Import', icon: Icons.upload_file_outlined, requiredPermission: Permission.importsManage),
+  _NavItem(path: '/picklists', label: 'Picklists', icon: Icons.checklist_rtl_outlined, requiredPermission: Permission.picklistsViewAssigned),
   _NavItem(path: '/users', label: 'Users', icon: Icons.people_outline, requiredPermission: Permission.usersManage),
   _NavItem(
     path: '/roles',
@@ -97,7 +96,7 @@ class AppShell extends ConsumerWidget {
     final visibleSidebar = _allSidebarNavItems.where((item) => _isVisible(ref, user, item.requiredPermission)).toList();
     final visibleBottom = _bottomNavItems.where((item) => _isVisible(ref, user, item.requiredPermission)).toList();
 
-    final isWide = MediaQuery.sizeOf(context).width >= AppBreakpoints.sidebarWide;
+    final isWide = MediaQuery.sizeOf(context).width >= 900;
     final sidebarSelectedIndex = visibleSidebar.indexWhere((item) => item.path == currentPath);
     final bottomSelectedIndex = visibleBottom.indexWhere((item) => item.path == currentPath);
 
@@ -124,27 +123,17 @@ class AppShell extends ConsumerWidget {
       return Scaffold(
         body: Row(
           children: [
-            // SingleChildScrollView so a full 12-item nav list never
-            // overflows on shorter viewports — NavigationRail's own Column
-            // of destinations doesn't scroll on its own.
-            SingleChildScrollView(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: MediaQuery.sizeOf(context).height),
-                child: IntrinsicHeight(
-                  child: NavigationRail(
-                    selectedIndex: sidebarSelectedIndex < 0 ? 0 : sidebarSelectedIndex,
-                    onDestinationSelected: (index) => context.go(visibleSidebar[index].path),
-                    labelType: NavigationRailLabelType.all,
-                    leading: const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 20),
-                      child: CompanyLogoMark(),
-                    ),
-                    destinations: visibleSidebar
-                        .map((item) => NavigationRailDestination(icon: Icon(item.icon), label: Text(item.label)))
-                        .toList(),
-                  ),
-                ),
+            NavigationRail(
+              selectedIndex: sidebarSelectedIndex < 0 ? 0 : sidebarSelectedIndex,
+              onDestinationSelected: (index) => context.go(visibleSidebar[index].path),
+              labelType: NavigationRailLabelType.all,
+              leading: const Padding(
+                padding: EdgeInsets.symmetric(vertical: 20),
+                child: CompanyLogoMark(),
               ),
+              destinations: visibleSidebar
+                  .map((item) => NavigationRailDestination(icon: Icon(item.icon), label: Text(item.label)))
+                  .toList(),
             ),
             const VerticalDivider(width: 1),
             Expanded(
@@ -173,9 +162,9 @@ class AppShell extends ConsumerWidget {
               ),
               const Divider(height: 1),
               ...visibleSidebar.map(
-                (item) => _DrawerNavTile(
-                  icon: item.icon,
-                  label: item.label,
+                (item) => ListTile(
+                  leading: Icon(item.icon),
+                  title: Text(item.label),
                   selected: item.path == currentPath,
                   onTap: () {
                     Navigator.of(context).pop();
@@ -184,9 +173,9 @@ class AppShell extends ConsumerWidget {
                 ),
               ),
               const Divider(height: 1),
-              _DrawerNavTile(
-                icon: Icons.settings_outlined,
-                label: 'Settings',
+              ListTile(
+                leading: const Icon(Icons.settings_outlined),
+                title: const Text('Settings'),
                 selected: currentPath == '/settings',
                 onTap: () {
                   Navigator.of(context).pop();
@@ -210,39 +199,6 @@ class AppShell extends ConsumerWidget {
                   .toList(),
             ),
       body: child,
-    );
-  }
-}
-
-/// Drawer nav row with a brand-colored active state (background tint +
-/// leading indicator bar) instead of the default Material `ListTile`
-/// selected look, so the active section reads clearly at a glance.
-class _DrawerNavTile extends StatelessWidget {
-  const _DrawerNavTile({required this.icon, required this.label, required this.selected, required this.onTap});
-
-  final IconData icon;
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final primary = Theme.of(context).colorScheme.primary;
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: selected ? primary.withOpacity(0.10) : null,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: ListTile(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        leading: Icon(icon, color: selected ? primary : AppColors.textSecondary),
-        title: Text(
-          label,
-          style: TextStyle(color: selected ? primary : null, fontWeight: selected ? FontWeight.w600 : FontWeight.w400),
-        ),
-        onTap: onTap,
-      ),
     );
   }
 }

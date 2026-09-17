@@ -22,10 +22,20 @@ class ImportMutationController extends AsyncNotifier<void> {
   @override
   Future<void> build() async {}
 
-  Future<ImportJob?> uploadFile({required String entityType, required List<int> fileBytes, required String fileName}) async {
+  Future<ImportJob?> uploadFile({
+    required String entityType,
+    required List<int> fileBytes,
+    required String fileName,
+    String? deliveryAgentId,
+  }) async {
     state = const AsyncLoading();
     try {
-      final job = await ref.read(importRepositoryProvider).uploadFile(entityType: entityType, fileBytes: fileBytes, fileName: fileName);
+      final job = await ref.read(importRepositoryProvider).uploadFile(
+            entityType: entityType,
+            fileBytes: fileBytes,
+            fileName: fileName,
+            deliveryAgentId: deliveryAgentId,
+          );
       ref.invalidate(importJobsListProvider);
       state = const AsyncData(null);
       return job;

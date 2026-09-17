@@ -1,0 +1,66 @@
+DELIVERY PICKLIST WORKFLOW — SETUP AND DESIGN NOTES
+============================================================
+
+1. RUN THE MIGRATION FIRST
+   database/migrations/003_add_picklist_workflow.sql
+   Additive only: adds customers.external_code, the picklists/picklist_items
+   tables, a placeholder "Picklist Delivery" product, and two new
+   permissions granted to Admin and Delivery Agent. Safe to re-run.
+
+2. SUPABASE STORAGE BUCKET
+   The "save the original XLSX in Import History" requirement is now
+   actually implemented (previously it was a documented placeholder) via
+   app/core/storage.py, which uploads to the bucket named in
+   SUPABASE_STORAGE_BUCKET_IMPORTS (already in your .env — defaults to
+   "imports"). Create that bucket in your Supabase project's Storage
+   section if it doesn't exist yet. If the upload fails for any reason
+   (bucket missing, network issue), the import still proceeds — the file
+   URL just falls back to a local placeholder rather than blocking the
+   import, and a warning is logged.
+
+3. KEY DESIGN DECISION — WHY THIS REUSES YOUR EXISTING SALES/OUTSTANDING
+   Each picklist row becomes a real Sale (with the picklist's own invoice
+   number, not an auto-generated one) linked to a matched-or-created
+   Customer. This is deliberate: it means "Credit / Udhaar" automatically
+   shows up in your EXISTING Customer Outstanding/Ledger screens and
+   Salesman collection flow with ZERO additional backend logic — it's
+   simply an unpaid Sale, computed by the exact same
+   CustomerService.get_outstanding()/get_ledger() every other sale already
+   goes through. No parallel "delivery ledger" was built.
+
+4. DOCUMENTED ASSUMPTIONS (please confirm these match your intent)
+   - "Online" collection maps to payment_method='upi' internally (the
+     Excel format doesn't distinguish UPI vs. bank transfer).
+   - The picklist's "sales man"/PSR-route column is stored as display-only
+     metadata (`salesman_label`) — it is NOT matched to a real system user,
+     since it's a route code, not necessarily an existing Salesman account.
+     The Sale created from each row has salesman_id = NULL.
+   - Each picklist row creates exactly ONE synthetic sale_item (using a
+     placeholder "Picklist Delivery" product) since the Excel only gives a
+     total per invoice, not item-level detail.
+   - A picklist item, once confirmed (Cash/Online/Credit), cannot be
+     changed — matches the "no automatic reversal" pattern used elsewhere
+     in the app (cancelled sales, bounced cheques). If you need an
+     undo/correction flow, that's a follow-up, not built here.
+   - Re-importing the same Invoice Number or Picklist No is rejected (the
+     row is marked failed / the whole import is rejected respectively)
+     rather than silently creating duplicates.
+
+5. WHAT WAS VERIFIED (and what wasn't)
+   - Backend: compiles, all 69 routes register, all ORM relationships
+     resolve (configure_mappers()), all 33 existing tests still pass.
+   - The picklist Excel parser was tested against an in-memory workbook
+     built to match your screenshot's exact structure (3-row metadata
+     header, data table, trailing Total row) — confirmed it extracts all
+     3 metadata fields correctly, processes exactly the data rows, and
+     skips the Total row.
+   - The PicklistDetailResponse Pydantic construction pattern was verified
+     directly (not just assumed) to serialize into the exact JSON shape
+     the Flutter models expect.
+   - Flutter: brace-balance and import-consistency checks on all 12
+     changed/new files.
+   - NOT verified: a live end-to-end run against a real Supabase database
+     (this sandbox has no live DB access) — please test the full loop
+     yourself: import a picklist as Admin, confirm deliveries as the
+     Delivery Agent, and check the resulting Sale/Payment/Outstanding on
+     the Customer's existing screens before relying on this.

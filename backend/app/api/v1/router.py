@@ -9,6 +9,7 @@ from app.api.v1 import (
     imports,
     invoices,
     payments,
+    picklists,
     products,
     reports,
     returns,
@@ -37,3 +38,4 @@ api_router.include_router(expenses.router)
 api_router.include_router(salesmen.router)
 api_router.include_router(reports.router)
 api_router.include_router(imports.router)
+api_router.include_router(picklists.router)

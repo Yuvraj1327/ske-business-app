@@ -13,6 +13,8 @@ import '../features/expenses/presentation/screens/expenses_list_screen.dart';
 import '../features/imports/presentation/screens/imports_screen.dart';
 import '../features/payments/presentation/screens/payments_list_screen.dart';
 import '../features/payments/presentation/screens/record_payment_screen.dart';
+import '../features/picklists/presentation/screens/picklist_detail_screen.dart';
+import '../features/picklists/presentation/screens/picklists_list_screen.dart';
 import '../features/products/presentation/screens/products_list_screen.dart';
 import '../features/reports/presentation/screens/reports_hub_screen.dart';
 import '../features/returns/presentation/screens/create_return_screen.dart';
@@ -63,6 +65,7 @@ const _permissionGuardedRoutes = <String, String>{
   '/salesmen': Permission.salesmenManage,
   '/reports': Permission.reportsView,
   '/imports': Permission.importsManage,
+  '/picklists': Permission.picklistsViewAssigned,
   '/users': Permission.usersManage,
   '/roles': Permission.rolesManage,
 };
@@ -148,6 +151,12 @@ final routerProvider = Provider<GoRouter>((ref) {
 
           GoRoute(path: '/reports', pageBuilder: (context, state) => _instant(const ReportsHubScreen())),
           GoRoute(path: '/imports', pageBuilder: (context, state) => _instant(const ImportsScreen())),
+
+          GoRoute(path: '/picklists', pageBuilder: (context, state) => _instant(const PicklistsListScreen())),
+          GoRoute(
+            path: '/picklists/:id',
+            pageBuilder: (context, state) => _instant(PicklistDetailScreen(picklistId: state.pathParameters['id']!)),
+          ),
 
           GoRoute(path: '/users', pageBuilder: (context, state) => _instant(const UsersListScreen())),
           GoRoute(path: '/roles', pageBuilder: (context, state) => _instant(const RolesPermissionsScreen())),

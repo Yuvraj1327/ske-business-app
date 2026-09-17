@@ -17,6 +17,11 @@ class Customer(Base):
     email: Mapped[str | None] = mapped_column(String, nullable=True)
     address: Mapped[str | None] = mapped_column(String, nullable=True)
     gst_number: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Links this customer to an external system's customer code (e.g. the
+    # delivery-picklist workflow's "Customer Code" column) so re-imports
+    # resolve to the same customer instead of creating duplicates. See
+    # database/migrations/003_add_picklist_workflow.sql.
+    external_code: Mapped[str | None] = mapped_column(String, nullable=True)
     assigned_salesman_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
     )

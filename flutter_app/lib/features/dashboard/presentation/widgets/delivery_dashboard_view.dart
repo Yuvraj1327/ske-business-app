@@ -11,6 +11,7 @@ import '../../../../core/widgets/error_view.dart';
 import '../../../../core/widgets/loading_view.dart';
 import '../../../../core/widgets/status_badge.dart';
 import '../../../customers/presentation/providers/customer_providers.dart';
+import '../../../picklists/presentation/providers/picklist_providers.dart';
 import '../../../sales/presentation/providers/sale_providers.dart';
 import 'summary_card.dart';
 
@@ -20,12 +21,15 @@ import 'summary_card.dart';
 /// with no per-user scoping, which would leak business-wide financial data
 /// to a role that should only ever see their own assigned work.
 ///
-/// Instead this reuses the ALREADY row-scoped `customersListProvider` and
-/// `salesListProvider` — the backend restricts both to records assigned to
-/// the current user whenever they hold `*.view_assigned` (rather than
-/// `*.view_all`), which a Delivery Agent does by design (see
-/// database/migrations/002_add_delivery_agent_role.sql). No new backend
-/// endpoint was needed for this.
+/// "My Picklists" is the primary section — a delivery agent's actual
+/// assigned work is tracked via `Picklist.delivery_agent_id` (set when
+/// Admin imports a picklist and assigns it to them), not via
+/// `Sale.salesman_id` (picklist-derived sales intentionally have no
+/// salesman_id, since there's no real matched salesman — see
+/// picklist_service.py). The "Assigned Deliveries" section below reuses the
+/// already row-scoped `salesListProvider`/`customersListProvider` from
+/// before the picklist workflow existed — kept as-is for anyone who also
+/// has sales/customers directly assigned to them outside the picklist flow.
 class DeliveryDashboardView extends ConsumerWidget {
   const DeliveryDashboardView({super.key});
 
@@ -40,14 +44,71 @@ class DeliveryDashboardView extends ConsumerWidget {
     }
   }
 
+  Color _picklistItemStatusColor(String status) {
+    switch (status) {
+      case 'cash':
+      case 'online':
+        return AppColors.success;
+      case 'credit':
+        return AppColors.error;
+      default:
+        return AppColors.warning;
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final customersAsync = ref.watch(customersListProvider);
     final salesAsync = ref.watch(salesListProvider);
+    final picklistsAsync = ref.watch(picklistsListProvider);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('My Picklists', style: AppTextStyles.heading3),
+            TextButton(onPressed: () => context.go('/picklists'), child: const Text('View all')),
+          ],
+        ),
+        picklistsAsync.when(
+          loading: () => const Padding(padding: EdgeInsets.only(top: 16), child: LoadingView()),
+          error: (e, _) => ErrorView(
+            failure: e is Failure ? e : Failure.unknown(e.toString()),
+            onRetry: () => ref.invalidate(picklistsListProvider),
+          ),
+          data: (page) {
+            if (page.items.isEmpty) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: EmptyStateView(message: 'No picklists assigned to you yet.', icon: Icons.checklist_rtl_outlined),
+              );
+            }
+            return Column(
+              children: page.items.take(5).map((picklist) {
+                final counts = picklist.counts;
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: ListTile(
+                    title: Text(picklist.picklistNo),
+                    subtitle: Text(
+                      '${counts.total} deliveries · ${counts.pending} pending'
+                      '${picklist.psrRoute != null ? ' · ${picklist.psrRoute}' : ''}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    trailing: counts.pending == 0
+                        ? const StatusBadge(label: 'Done', color: AppColors.success)
+                        : StatusBadge(label: '${counts.pending} pending', color: AppColors.warning),
+                    onTap: () => context.go('/picklists/${picklist.id}'),
+                  ),
+                );
+              }).toList(),
+            );
+          },
+        ),
+        const SizedBox(height: 20),
         Row(
           children: [
             Expanded(
@@ -60,7 +121,7 @@ class DeliveryDashboardView extends ConsumerWidget {
             const SizedBox(width: 12),
             Expanded(
               child: SummaryCard(
-                label: 'My Deliveries',
+                label: 'Assigned Sales',
                 value: salesAsync.valueOrNull?.total.toString() ?? '—',
                 icon: Icons.local_shipping_outlined,
                 iconColor: AppColors.warning,
@@ -80,7 +141,7 @@ class DeliveryDashboardView extends ConsumerWidget {
           data: (page) {
             if (page.items.isEmpty) {
               return const EmptyStateView(
-                message: 'No deliveries assigned to you yet.',
+                message: 'No sales directly assigned to you outside of picklists.',
                 icon: Icons.local_shipping_outlined,
               );
             }

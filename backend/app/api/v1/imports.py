@@ -18,6 +18,7 @@ async def upload_import_file(
     background_tasks: BackgroundTasks,
     entity_type: str = Form(...),
     file: UploadFile = File(...),
+    delivery_agent_id: uuid.UUID | None = Form(default=None),
     db: AsyncSession = Depends(get_db),
     current_user: CurrentUser = Depends(require_permission("imports.manage")),
 ) -> ImportJobResponse:
@@ -25,12 +26,18 @@ async def upload_import_file(
     Returns immediately (202) with a job in 'queued' status — actual parsing
     happens in a background task after the response is sent, so a large
     file never blocks this request. Poll GET /imports/{job_id} for progress.
+
+    `delivery_agent_id` is required (validated in the service layer) when
+    entity_type='picklists' — the Delivery Agent this picklist's deliveries
+    get assigned to. Ignored for other entity types.
     """
     file_bytes = await file.read()
     service = ImportService(db)
-    job = await service.start_import(entity_type, file.filename or "upload.xlsx", file_bytes, current_user.id)
+    job = await service.start_import(
+        entity_type, file.filename or "upload.xlsx", file_bytes, current_user.id, delivery_agent_id
+    )
 
-    background_tasks.add_task(process_import_job, job.id, file_bytes)
+    background_tasks.add_task(process_import_job, job.id, file_bytes, delivery_agent_id)
 
     return job
 

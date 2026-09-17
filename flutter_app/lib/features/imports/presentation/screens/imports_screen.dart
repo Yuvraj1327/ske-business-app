@@ -10,13 +10,15 @@ import '../../../../core/widgets/empty_state_view.dart';
 import '../../../../core/widgets/error_view.dart';
 import '../../../../core/widgets/loading_view.dart';
 import '../../../../core/widgets/status_badge.dart';
+import '../../../picklists/presentation/providers/picklist_providers.dart';
 import '../../domain/import_models.dart';
 import '../providers/import_providers.dart';
 
-/// Excel Import screen: pick a customers/products .xlsx file, upload it
-/// (processing happens server-side in the background — see
+/// Excel Import screen: pick a customers/products/picklist .xlsx file,
+/// upload it (processing happens server-side in the background — see
 /// app/services/import_service.py), and watch job status/row-level results
-/// in the history list below.
+/// in the history list below. For a picklist, a Delivery Agent must be
+/// selected first — that's who the resulting deliveries get assigned to.
 class ImportsScreen extends ConsumerStatefulWidget {
   const ImportsScreen({super.key});
 
@@ -26,8 +28,16 @@ class ImportsScreen extends ConsumerStatefulWidget {
 
 class _ImportsScreenState extends ConsumerState<ImportsScreen> {
   String _entityType = 'customers';
+  String? _selectedDeliveryAgentId;
 
   Future<void> _pickAndUpload() async {
+    if (_entityType == 'picklists' && _selectedDeliveryAgentId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Select a Delivery Agent before uploading a picklist.')),
+      );
+      return;
+    }
+
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['xlsx'],
@@ -46,11 +56,13 @@ class _ImportsScreenState extends ConsumerState<ImportsScreen> {
           entityType: _entityType,
           fileBytes: file.bytes!,
           fileName: file.name,
+          deliveryAgentId: _entityType == 'picklists' ? _selectedDeliveryAgentId : null,
         );
 
     if (!mounted) return;
     if (job != null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Upload started — processing in the background.')));
+      setState(() => _selectedDeliveryAgentId = null);
     } else {
       final state = ref.read(importMutationControllerProvider);
       final failure = state.hasError ? state.error as Failure : Failure.unknown();
@@ -76,7 +88,7 @@ class _ImportsScreenState extends ConsumerState<ImportsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text('Failed Rows — ${job.fileName}', style: AppTextStyles.heading3, overflow: TextOverflow.ellipsis),
+                    Text('Failed Rows — ${job.fileName}', style: AppTextStyles.heading3),
                     const Divider(),
                     Expanded(
                       child: rowsAsync.when(
@@ -94,12 +106,7 @@ class _ImportsScreenState extends ConsumerState<ImportsScreen> {
                               return ListTile(
                                 dense: true,
                                 leading: Text('Row ${row.rowNumber}'),
-                                title: Text(
-                                  row.errorMessage ?? 'Unknown error',
-                                  style: const TextStyle(color: AppColors.error),
-                                  overflow: TextOverflow.ellipsis,
-                                  maxLines: 2,
-                                ),
+                                title: Text(row.errorMessage ?? 'Unknown error', style: const TextStyle(color: AppColors.error)),
                               );
                             },
                           );
@@ -153,17 +160,53 @@ class _ImportsScreenState extends ConsumerState<ImportsScreen> {
                     segments: const [
                       ButtonSegment(value: 'customers', label: Text('Customers')),
                       ButtonSegment(value: 'products', label: Text('Products')),
+                      ButtonSegment(value: 'picklists', label: Text('Picklist')),
                     ],
                     selected: {_entityType},
-                    onSelectionChanged: (s) => setState(() => _entityType = s.first),
+                    onSelectionChanged: (s) => setState(() {
+                      _entityType = s.first;
+                      _selectedDeliveryAgentId = null;
+                    }),
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    _entityType == 'customers'
-                        ? 'Required column: name. Optional: phone, email, address, gst_number.'
-                        : 'Required columns: name, default_price. Optional: sku, unit.',
+                    switch (_entityType) {
+                      'customers' => 'Required column: name. Optional: phone, email, address, gst_number.',
+                      'products' => 'Required columns: name, default_price. Optional: sku, unit.',
+                      _ => 'Accepts the delivery agent\'s picklist file exactly as exported: Picklist No / '
+                          'Delivery agent / PSR Route header, then No., Invoice Number, Customer Code, '
+                          'Customer Name, Sales man, Amount Payable columns.',
+                    },
                     style: AppTextStyles.caption,
                   ),
+                  if (_entityType == 'picklists') ...[
+                    const SizedBox(height: 14),
+                    Text('Delivery Agent', style: AppTextStyles.bodySecondary),
+                    const SizedBox(height: 6),
+                    Consumer(
+                      builder: (context, ref, _) {
+                        final agentsAsync = ref.watch(deliveryAgentsProvider);
+                        return agentsAsync.when(
+                          loading: () => const LinearProgressIndicator(),
+                          error: (e, _) => const Text('Could not load delivery agents'),
+                          data: (agents) {
+                            if (agents.isEmpty) {
+                              return const Text(
+                                'No delivery agents found. Create one from Users first.',
+                                style: AppTextStyles.caption,
+                              );
+                            }
+                            return DropdownButtonFormField<String>(
+                              value: _selectedDeliveryAgentId,
+                              hint: const Text('Select the agent this picklist belongs to'),
+                              items: agents.map((a) => DropdownMenuItem(value: a.id, child: Text(a.fullName))).toList(),
+                              onChanged: (v) => setState(() => _selectedDeliveryAgentId = v),
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   ElevatedButton.icon(
                     icon: const Icon(Icons.upload_file, size: 18),
@@ -194,11 +237,10 @@ class _ImportsScreenState extends ConsumerState<ImportsScreen> {
                   itemBuilder: (context, i) {
                     final job = page.items[i];
                     return ListTile(
-                      title: Text(job.fileName, overflow: TextOverflow.ellipsis),
+                      title: Text(job.fileName),
                       subtitle: Text(
                         '${job.entityType} · ${Formatters.dateTime(job.createdAt)}'
                         '${job.totalRows != null ? ' · ${job.successRows}/${job.totalRows} succeeded' : ''}',
-                        overflow: TextOverflow.ellipsis,
                       ),
                       trailing: StatusBadge(label: job.status, color: _statusColor(job.status)),
                       onTap: job.failedRows > 0 ? () => _showFailedRows(job) : null,
