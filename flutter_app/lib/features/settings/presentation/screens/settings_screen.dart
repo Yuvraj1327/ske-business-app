@@ -9,6 +9,7 @@ import '../../../../core/theme/theme_mode_provider.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/confirm_dialog.dart';
 import '../../../auth/data/auth_repository.dart';
+import '../widgets/reset_data_dialog.dart';
 
 /// Settings — available to both Admin and Salesman/Delivery Agent alike
 /// (not permission gated, since it's account-level rather than a business
@@ -145,6 +146,19 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 16),
+            if (user?.isAdmin ?? false) ...[
+              _SettingsSection(
+                title: 'Danger Zone',
+                child: ListTile(
+                  leading: const Icon(Icons.delete_forever_outlined, color: AppColors.error),
+                  title: const Text('Reset Data', style: TextStyle(color: AppColors.error, fontWeight: FontWeight.w600)),
+                  subtitle: const Text('Permanently clear customers, sales, payments, and imports'),
+                  trailing: const Icon(Icons.chevron_right, size: 20),
+                  onTap: () => showResetDataDialog(context),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
             _SettingsSection(
               child: ListTile(
                 leading: const Icon(Icons.logout, color: AppColors.error),

@@ -42,3 +42,16 @@ final transactionReportProvider = FutureProvider.autoDispose<TransactionReport>(
   final range = ref.watch(reportRangeProvider);
   return ref.watch(reportRepositoryProvider).getTransactionReport(range: range);
 });
+
+/// Used by the Dashboard's "Payments Received" tap-to-breakdown sheet — a
+/// separate family provider (keyed by the dashboard's own range/dates)
+/// rather than reusing [paymentReportProvider], so opening it never
+/// disturbs the Reports screen's own [reportRangeProvider] state.
+typedef PaymentBreakdownParams = ({String rangeKey, DateTime? from, DateTime? to});
+
+final paymentBreakdownForRangeProvider =
+    FutureProvider.autoDispose.family<PaymentReport, PaymentBreakdownParams>((ref, params) {
+  return ref
+      .watch(reportRepositoryProvider)
+      .getPaymentReport(range: params.rangeKey, from: params.from, to: params.to);
+});

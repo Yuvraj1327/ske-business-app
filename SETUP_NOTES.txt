@@ -1,66 +1,89 @@
-DELIVERY PICKLIST WORKFLOW — SETUP AND DESIGN NOTES
+THREE FEATURES — SETUP AND VERIFICATION NOTES
 ============================================================
 
-1. RUN THE MIGRATION FIRST
-   database/migrations/003_add_picklist_workflow.sql
-   Additive only: adds customers.external_code, the picklists/picklist_items
-   tables, a placeholder "Picklist Delivery" product, and two new
-   permissions granted to Admin and Delivery Agent. Safe to re-run.
+No database migration needed for this delta — all 3 features build on
+tables/columns that already existed (picklists/payments/customers/imports
+from earlier migrations). Just deploy the backend + Flutter changes.
 
-2. SUPABASE STORAGE BUCKET
-   The "save the original XLSX in Import History" requirement is now
-   actually implemented (previously it was a documented placeholder) via
-   app/core/storage.py, which uploads to the bucket named in
-   SUPABASE_STORAGE_BUCKET_IMPORTS (already in your .env — defaults to
-   "imports"). Create that bucket in your Supabase project's Storage
-   section if it doesn't exist yet. If the upload fails for any reason
-   (bucket missing, network issue), the import still proceeds — the file
-   URL just falls back to a local placeholder rather than blocking the
-   import, and a warning is logged.
+------------------------------------------------------------
+1. DASHBOARD: "Payments Received" tap-to-breakdown
+------------------------------------------------------------
+Tapping the card now opens a sheet showing Cash / UPI / Bank Transfer /
+Cheque totals for the SAME date range currently selected on the dashboard,
+reusing the existing GET /reports/payments endpoint (zero new backend
+code) — plus the current Outstanding total, labeled "Credit / Not yet
+collected". This is deliberately NOT a 4th "collection method" bucket:
+by design, a Credit/Udhaar delivery never creates a Payment row (see the
+picklist workflow), so it can't appear in a payment-method breakdown — it
+shows as Outstanding instead, which is the accurate picture.
 
-3. KEY DESIGN DECISION — WHY THIS REUSES YOUR EXISTING SALES/OUTSTANDING
-   Each picklist row becomes a real Sale (with the picklist's own invoice
-   number, not an auto-generated one) linked to a matched-or-created
-   Customer. This is deliberate: it means "Credit / Udhaar" automatically
-   shows up in your EXISTING Customer Outstanding/Ledger screens and
-   Salesman collection flow with ZERO additional backend logic — it's
-   simply an unpaid Sale, computed by the exact same
-   CustomerService.get_outstanding()/get_ledger() every other sale already
-   goes through. No parallel "delivery ledger" was built.
+------------------------------------------------------------
+2. IMPORT HISTORY: delete records
+------------------------------------------------------------
+Each row now has a delete icon -> confirmation dialog -> DELETE
+/imports/{job_id}. This removes ONLY the history/tracking record. Business
+data that import already created (customers, sales, picklists) is NEVER
+touched. If a Picklist references the deleted import job, that reference
+is set to NULL first so the picklist itself survives untouched.
 
-4. DOCUMENTED ASSUMPTIONS (please confirm these match your intent)
-   - "Online" collection maps to payment_method='upi' internally (the
-     Excel format doesn't distinguish UPI vs. bank transfer).
-   - The picklist's "sales man"/PSR-route column is stored as display-only
-     metadata (`salesman_label`) — it is NOT matched to a real system user,
-     since it's a route code, not necessarily an existing Salesman account.
-     The Sale created from each row has salesman_id = NULL.
-   - Each picklist row creates exactly ONE synthetic sale_item (using a
-     placeholder "Picklist Delivery" product) since the Excel only gives a
-     total per invoice, not item-level detail.
-   - A picklist item, once confirmed (Cash/Online/Credit), cannot be
-     changed — matches the "no automatic reversal" pattern used elsewhere
-     in the app (cancelled sales, bounced cheques). If you need an
-     undo/correction flow, that's a follow-up, not built here.
-   - Re-importing the same Invoice Number or Picklist No is rejected (the
-     row is marked failed / the whole import is rejected respectively)
-     rather than silently creating duplicates.
+------------------------------------------------------------
+3. SETTINGS -> RESET DATA (admin only) — read this carefully
+------------------------------------------------------------
+Flow implemented exactly as specified: Settings -> Reset Data -> Warning
+-> Enter Admin Password -> Verify (server-side) -> Reset, with a clear
+final success/error message.
 
-5. WHAT WAS VERIFIED (and what wasn't)
-   - Backend: compiles, all 69 routes register, all ORM relationships
-     resolve (configure_mappers()), all 33 existing tests still pass.
-   - The picklist Excel parser was tested against an in-memory workbook
-     built to match your screenshot's exact structure (3-row metadata
-     header, data table, trailing Total row) — confirmed it extracts all
-     3 metadata fields correctly, processes exactly the data rows, and
-     skips the Total row.
-   - The PicklistDetailResponse Pydantic construction pattern was verified
-     directly (not just assumed) to serialize into the exact JSON shape
-     the Flutter models expect.
-   - Flutter: brace-balance and import-consistency checks on all 12
-     changed/new files.
-   - NOT verified: a live end-to-end run against a real Supabase database
-     (this sandbox has no live DB access) — please test the full loop
-     yourself: import a picklist as Admin, confirm deliveries as the
-     Delivery Agent, and check the resulting Sale/Payment/Outstanding on
-     the Customer's existing screens before relying on this.
+HOW PASSWORD VERIFICATION WORKS: the backend attempts a real Supabase Auth
+sign-in with the provided password (using the public anon key, not the
+service-role key) — this is the ONLY correct way to verify a password
+without storing or reimplementing any credential handling, since Supabase
+Auth is the sole owner of credentials in this architecture. A failed
+attempt returns "Incorrect password" and NOTHING is deleted. This does
+create a throwaway Supabase Auth session as a side effect (Supabase's API
+has no "check password without a session" endpoint) — it's discarded
+immediately and never stored or returned to the client.
+
+WHAT GETS DELETED (in this exact order, inside one atomic transaction):
+  picklists -> sales_returns -> transactions -> payments -> invoices ->
+  sales -> import_jobs -> expenses -> salesman_customer_assignments ->
+  customers -> invoice_number_sequences
+(Several of these cascade further automatically via existing ON DELETE
+CASCADE constraints — e.g. deleting sales also removes sale_items.)
+
+WHAT IS NEVER TOUCHED: users (including the admin account), roles,
+permissions, role_permissions, products, expense_categories, tasks.
+
+HOW THIS WAS VERIFIED (not just reasoned about on paper): I built a real
+foreign-key-enforcing test database, seeded EVERY dependent table
+(picklists, sales returns, cheques, both transaction types, import job
+rows, salesman assignments, invoice sequences), ran the actual deletion
+sequence from admin_service.py against it, and confirmed:
+  - zero foreign key violations
+  - every "preserved" table survived with its data intact
+  - every "wiped" table (including cascade-deleted children like
+    sale_items and cheque_details) ended up empty
+This is the strongest verification of any single piece of logic in this
+project — the order isn't a guess, it's a traced dependency graph that was
+then proven against a real constraint-enforcing database.
+
+ONE THING I COULD NOT TEST: the actual Supabase Auth sign-in call, since
+this sandbox has no real Supabase project to verify a real password
+against. The code follows the same pattern your login flow already uses,
+but please test this specific step for real — try Reset Data with a wrong
+password first (should fail cleanly, nothing deleted) before trusting it
+with a correct one.
+
+------------------------------------------------------------
+GENERAL VERIFICATION DONE THIS SESSION
+------------------------------------------------------------
+- Backend: compiles, all 71 routes register, all ORM relationships
+  resolve, all 33 existing tests still pass.
+- Flutter: brace-balance and import-consistency checks across all 12
+  changed/new files, plus a specific re-check for the missing-import bug
+  class that caused a real bug two sessions ago.
+- Cross-checked every field name and method signature referenced across
+  the Flutter/backend boundary (response JSON keys, model fields, API
+  client method signatures) against the actual source, not assumed.
+- No live database in this sandbox, so the full end-to-end flow (a real
+  admin resetting real data) has not been run — please test it yourself,
+  starting with a wrong password, before relying on it.

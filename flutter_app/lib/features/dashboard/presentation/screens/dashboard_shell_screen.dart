@@ -15,9 +15,11 @@ import '../../../../core/widgets/loading_view.dart';
 import '../../../../core/widgets/status_badge.dart';
 import '../../../customers/presentation/widgets/customer_form_dialog.dart';
 import '../../../sales/presentation/providers/sale_providers.dart';
+import '../../domain/dashboard_summary.dart';
 import '../providers/dashboard_providers.dart';
 import '../widgets/dashboard_date_filter_bar.dart';
 import '../widgets/delivery_dashboard_view.dart';
+import '../widgets/payments_breakdown_sheet.dart';
 import '../widgets/quick_action_button.dart';
 import '../widgets/summary_card.dart';
 
@@ -152,6 +154,22 @@ class _BusinessDashboardView extends ConsumerWidget {
                 value: Formatters.currency(summary.paymentsReceived),
                 icon: Icons.payments_outlined,
                 iconColor: AppColors.success,
+                onTap: () {
+                  final filter = ref.read(dashboardFilterProvider);
+                  final rangeKey = switch (filter.range) {
+                    DashboardDateRange.today => 'today',
+                    DashboardDateRange.week => 'week',
+                    DashboardDateRange.month => 'month',
+                    DashboardDateRange.custom => 'custom',
+                  };
+                  showPaymentsBreakdownSheet(
+                    context,
+                    rangeKey: rangeKey,
+                    customFrom: filter.customFrom,
+                    customTo: filter.customTo,
+                    outstandingTotal: summary.outstandingTotal,
+                  );
+                },
               ),
               SummaryCard(
                 label: 'Expenses',

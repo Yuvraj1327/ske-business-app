@@ -5,35 +5,23 @@ internal `User` row (with role/permissions) for each request.
 Flow:
   1. Flutter authenticates against Supabase Auth directly and receives a JWT.
   2. Flutter sends that JWT as `Authorization: Bearer <token>` to FastAPI.
-  3. FastAPI verifies the JWT signature/expiry against the project's signing
-     key (see below).
+  3. FastAPI verifies the JWT signature/expiry using SUPABASE_JWT_SECRET
+     (HS256, the default for Supabase project JWTs).
   4. FastAPI looks up the internal `users` row by `auth_user_id` (the JWT's
      `sub` claim) to load role + permissions.
 
-Signing algorithms
-------------------
-Supabase projects issue tokens in one of two ways, and a project can be
-migrated from the first to the second at any time:
-
-  * Legacy: symmetric HS256, signed with the project's shared JWT secret
-    (SUPABASE_JWT_SECRET).
-  * Current: asymmetric ES256/RS256, signed with a rotating private key whose
-    public half is published at `{SUPABASE_URL}/auth/v1/.well-known/jwks.json`
-    and selected by the token header's `kid`.
-
-We support both. The token header decides which path is taken, so no config
-change is needed when a project rotates to asymmetric keys. JWKS responses are
-cached in-process and re-fetched when an unknown `kid` appears (key rotation).
-
 We NEVER trust a role/permission claim sent by the client — role always comes
 from our own `users`/`roles` tables, resolved server-side on every request.
+
+DIAGNOSTIC LOGGING: every 401 branch below logs its specific reason (via
+loguru, at WARNING level) including the auth_user_id where available. This
+does not change the response sent to the client — it exists so a real
+"why did this login fail" question can be answered from server logs alone,
+without weakening the actual security check.
 """
-import threading
-import time
 import uuid
 from dataclasses import dataclass, field
 
-import httpx
 from fastapi import Depends, Header
 from jose import JWTError, jwt
 from loguru import logger
@@ -47,52 +35,6 @@ from app.models.user import User
 
 settings = get_settings()
 
-# Claims every Supabase user token carries.
-_EXPECTED_AUDIENCE = "authenticated"
-_EXPECTED_ISSUER = f"{settings.SUPABASE_URL.rstrip('/')}/auth/v1"
-_JWKS_URL = f"{settings.SUPABASE_URL.rstrip('/')}/auth/v1/.well-known/jwks.json"
-
-# Refetch at most this often when a `kid` misses, so a bogus token cannot make
-# us hammer the JWKS endpoint.
-_JWKS_MIN_REFRESH_SECONDS = 60
-
-
-class _JwksCache:
-    """Thread-safe in-process cache of the project's public signing keys."""
-
-    def __init__(self) -> None:
-        self._keys: dict[str, dict] = {}
-        self._fetched_at: float = 0.0
-        self._lock = threading.Lock()
-
-    def _fetch(self) -> None:
-        response = httpx.get(_JWKS_URL, timeout=10.0)
-        response.raise_for_status()
-        keys = response.json().get("keys", [])
-        self._keys = {key["kid"]: key for key in keys if "kid" in key}
-        self._fetched_at = time.monotonic()
-        logger.debug(f"Loaded {len(self._keys)} Supabase JWKS signing key(s)")
-
-    def get(self, kid: str) -> dict | None:
-        with self._lock:
-            key = self._keys.get(kid)
-            if key is not None:
-                return key
-
-            # Unknown kid: either first use, or the project rotated its keys.
-            stale = time.monotonic() - self._fetched_at > _JWKS_MIN_REFRESH_SECONDS
-            if self._keys and not stale:
-                return None
-            try:
-                self._fetch()
-            except Exception as exc:  # network/JWKS outage
-                logger.error(f"Failed to fetch Supabase JWKS from {_JWKS_URL}: {exc}")
-                return None
-            return self._keys.get(kid)
-
-
-_jwks_cache = _JwksCache()
-
 
 @dataclass
 class CurrentUser:
@@ -103,6 +45,7 @@ class CurrentUser:
     full_name: str
     role_name: str
     is_active: bool
+    email: str | None = None
     permission_keys: set[str] = field(default_factory=set)
 
     def has_permission(self, key: str) -> bool:
@@ -114,37 +57,26 @@ class CurrentUser:
 
 
 def _decode_supabase_jwt(token: str) -> dict:
-    """Verify a Supabase access token's signature, expiry, audience and issuer."""
     try:
-        header = jwt.get_unverified_header(token)
-    except JWTError as exc:
-        raise UnauthorizedError("Malformed authentication token") from exc
-
-    alg = header.get("alg", "HS256")
-
-    if alg == "HS256":
-        # Legacy symmetric signing with the project's shared JWT secret.
-        key: object = settings.SUPABASE_JWT_SECRET
-    else:
-        # Asymmetric signing (ES256/RS256) — resolve the public key by `kid`.
-        kid = header.get("kid")
-        if not kid:
-            raise UnauthorizedError("Authentication token missing key id")
-        jwk = _jwks_cache.get(kid)
-        if jwk is None:
-            raise UnauthorizedError("Unknown authentication token signing key")
-        key = jwk
-
-    try:
-        return jwt.decode(
+        # Supabase project JWTs are signed HS256 with the project's JWT secret.
+        # `audience` is typically "authenticated" for logged-in users.
+        payload = jwt.decode(
             token,
-            key,
-            algorithms=[alg],
-            audience=_EXPECTED_AUDIENCE,
-            issuer=_EXPECTED_ISSUER,
-            options={"verify_aud": True, "verify_iss": True},
+            settings.SUPABASE_JWT_SECRET,
+            algorithms=["HS256"],
+            audience="authenticated",
+            options={"verify_aud": True},
         )
+        return payload
     except JWTError as exc:
+        # Logging exc's class name (not the token itself) tells us WHICH
+        # jose failure fired: ExpiredSignatureError (token genuinely
+        # expired), JWTClaimsError (wrong audience — often means the
+        # project uses a non-default JWT template), or a generic
+        # JWTError (wrong SUPABASE_JWT_SECRET / wrong signing algorithm,
+        # e.g. the project has asymmetric JWT signing keys enabled instead
+        # of the legacy HS256 shared secret this code assumes).
+        logger.warning(f"JWT verification failed: {type(exc).__name__}: {exc}")
         raise UnauthorizedError("Invalid or expired authentication token") from exc
 
 
@@ -153,6 +85,7 @@ async def get_current_user(
     db: AsyncSession = Depends(get_db),
 ) -> CurrentUser:
     if not authorization or not authorization.lower().startswith("bearer "):
+        logger.warning("Auth failed: missing or malformed Authorization header")
         raise UnauthorizedError("Missing or malformed Authorization header")
 
     token = authorization.split(" ", 1)[1].strip()
@@ -160,22 +93,37 @@ async def get_current_user(
 
     auth_user_id_str = payload.get("sub")
     if not auth_user_id_str:
+        logger.warning("Auth failed: JWT payload has no 'sub' claim")
         raise UnauthorizedError("Token missing subject claim")
 
     try:
         auth_user_id = uuid.UUID(auth_user_id_str)
     except ValueError as exc:
+        logger.warning(f"Auth failed: 'sub' claim '{auth_user_id_str}' is not a valid UUID")
         raise UnauthorizedError("Malformed subject claim") from exc
 
     result = await db.execute(select(User).where(User.auth_user_id == auth_user_id))
     user = result.scalar_one_or_none()
 
     if user is None:
+        # This is the case most likely to be hit by an account created
+        # directly in Supabase Auth (or the SQL Editor) without a matching
+        # INSERT into public.users — see database/migrations/001_initial_schema.sql
+        # and the README's "create your first admin user" step for the
+        # pattern this requires.
+        logger.warning(
+            f"Auth failed: no public.users row for auth_user_id={auth_user_id} "
+            f"(Supabase Auth session is valid, but there's no matching app profile)"
+        )
         raise UnauthorizedError("No application profile found for this account")
+
     if not user.is_active:
+        logger.warning(f"Auth failed: user {user.id} (auth_user_id={auth_user_id}) is deactivated")
         raise UnauthorizedError("This account has been deactivated")
 
     permission_keys = {perm.key for perm in user.role.permissions}
+
+    logger.info(f"Auth OK: user {user.id} ({user.role.name}), {len(permission_keys)} permissions")
 
     return CurrentUser(
         id=user.id,
@@ -183,5 +131,6 @@ async def get_current_user(
         full_name=user.full_name,
         role_name=user.role.name,
         is_active=user.is_active,
+        email=payload.get("email"),
         permission_keys=permission_keys,
     )

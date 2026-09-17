@@ -45,4 +45,11 @@ class ImportRepository {
     );
     return Page.fromJson(response.data!, ImportJobRow.fromJson);
   }
+
+  /// Deletes only the history/log entry — never the business data (customers,
+  /// sales, picklists, ...) that import created. See the backend's
+  /// ImportService.delete_job docstring for the exact behavior.
+  Future<void> deleteJob(String jobId) async {
+    await _apiClient.delete('/imports/$jobId');
+  }
 }

@@ -106,6 +106,35 @@ class ImportService:
     async def list_job_rows(self, job_id: uuid.UUID, pagination: PaginationParams, status: str | None):
         return await self.imports.list_job_rows(job_id, pagination, status)
 
+    async def delete_job(self, job_id: uuid.UUID) -> None:
+        """
+        Deletes an import history record. This removes only the job's
+        tracking/log entry (and its row-level results) — it deliberately
+        does NOT delete any business data the import created (customers,
+        sales, picklists, etc.), since "delete this history entry" and
+        "undo everything it imported" are very different, more dangerous
+        actions that weren't requested. If a Picklist references this job
+        (Picklist.import_job_id), that reference is cleared first (set to
+        NULL) so the picklist and its sales/customers/collections are
+        preserved untouched — only the "which import created this" link is
+        removed.
+        """
+        job = await self.imports.get_job(job_id)
+        if job is None:
+            raise ValidationError("Import job not found.")
+
+        try:
+            linked_picklists = await self.db.execute(select(Picklist).where(Picklist.import_job_id == job_id))
+            for picklist in linked_picklists.scalars().all():
+                picklist.import_job_id = None
+            await self.db.flush()
+
+            await self.imports.delete_job(job)
+            await self.db.commit()
+        except Exception:
+            await self.db.rollback()
+            raise
+
 
 async def process_import_job(job_id: uuid.UUID, file_bytes: bytes, delivery_agent_id: uuid.UUID | None = None) -> None:
     """

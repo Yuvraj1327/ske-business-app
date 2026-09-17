@@ -40,3 +40,12 @@ class ImportRepository:
             stmt = stmt.where(ImportJobRow.status == status)
         stmt = stmt.order_by(ImportJobRow.row_number)
         return await paginate(self.db, stmt, pagination)
+
+    async def delete_job(self, job: ImportJob) -> None:
+        """Deletes the job and (via ON DELETE CASCADE) its rows. Does NOT
+        touch any business data created from this import (customers,
+        sales, picklists, etc.) — see ImportService.delete_job for how a
+        linked Picklist is detached first, since Picklist.import_job_id has
+        no cascade of its own by design."""
+        await self.db.delete(job)
+        await self.db.flush()

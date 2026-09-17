@@ -16,8 +16,16 @@ class ReportRepository {
     return (response.data!['items'] as List).map((e) => CustomerReportRow.fromJson(e as Map<String, dynamic>)).toList();
   }
 
-  Future<PaymentReport> getPaymentReport({String range = 'month'}) async {
-    final response = await _apiClient.get<Map<String, dynamic>>('/reports/payments', queryParameters: {'range': range, 'page_size': 1});
+  Future<PaymentReport> getPaymentReport({String range = 'month', DateTime? from, DateTime? to}) async {
+    final response = await _apiClient.get<Map<String, dynamic>>(
+      '/reports/payments',
+      queryParameters: {
+        'range': range,
+        'page_size': 1,
+        if (from != null) 'from': _formatDate(from),
+        if (to != null) 'to': _formatDate(to),
+      },
+    );
     return PaymentReport.fromJson(response.data!);
   }
 
@@ -40,4 +48,7 @@ class ReportRepository {
     final response = await _apiClient.get<Map<String, dynamic>>('/reports/transactions', queryParameters: {'range': range});
     return TransactionReport.fromJson(response.data!);
   }
+
+  String _formatDate(DateTime date) =>
+      '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 }

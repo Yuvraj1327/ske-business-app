@@ -17,6 +17,7 @@ class SummaryCard extends StatelessWidget {
     this.iconColor,
     this.subtitle,
     this.isHero = false,
+    this.onTap,
   });
 
   final String label;
@@ -27,6 +28,10 @@ class SummaryCard extends StatelessWidget {
   final Color? iconColor;
   final String? subtitle;
   final bool isHero;
+  /// Optional — when set, the whole card becomes tappable (e.g. "Payments
+  /// Received" opens a Cash/Online/Credit breakdown). Cards without a
+  /// handler render and behave exactly as before.
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -34,43 +39,47 @@ class SummaryCard extends StatelessWidget {
 
     return Card(
       clipBehavior: Clip.antiAlias,
-      child: IntrinsicHeight(
-        child: Row(
-          children: [
-            Container(width: 4, color: resolvedIconColor),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(color: resolvedIconColor.withOpacity(0.12), shape: BoxShape.circle),
-                          child: Icon(icon, size: 17, color: resolvedIconColor),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(child: Text(label, style: AppTextStyles.bodySecondary)),
+      child: InkWell(
+        onTap: onTap,
+        child: IntrinsicHeight(
+          child: Row(
+            children: [
+              Container(width: 4, color: resolvedIconColor),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(color: resolvedIconColor.withOpacity(0.12), shape: BoxShape.circle),
+                            child: Icon(icon, size: 17, color: resolvedIconColor),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(child: Text(label, style: AppTextStyles.bodySecondary)),
+                          if (onTap != null) Icon(Icons.chevron_right, size: 16, color: Theme.of(context).hintColor),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        value,
+                        style: isHero ? AppTextStyles.amountLarge : AppTextStyles.heading1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (subtitle != null) ...[
+                        const SizedBox(height: 3),
+                        Text(subtitle!, style: AppTextStyles.caption, overflow: TextOverflow.ellipsis),
                       ],
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      value,
-                      style: isHero ? AppTextStyles.amountLarge : AppTextStyles.heading1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (subtitle != null) ...[
-                      const SizedBox(height: 3),
-                      Text(subtitle!, style: AppTextStyles.caption, overflow: TextOverflow.ellipsis),
                     ],
-                  ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

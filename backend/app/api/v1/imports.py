@@ -86,3 +86,15 @@ async def list_import_job_rows(
         page_size=pagination.page_size,
         total_pages=max(1, -(-total // pagination.page_size)),
     )
+
+
+@router.delete("/{job_id}", status_code=204)
+async def delete_import_job(
+    job_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _: CurrentUser = Depends(require_permission("imports.manage")),
+) -> None:
+    """Deletes an import history entry only — never the business data it
+    created (see ImportService.delete_job)."""
+    service = ImportService(db)
+    await service.delete_job(job_id)

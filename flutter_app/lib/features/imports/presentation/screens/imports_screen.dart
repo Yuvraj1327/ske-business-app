@@ -6,6 +6,7 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/errors/failure.dart';
 import '../../../../core/utils/formatters.dart';
+import '../../../../core/widgets/confirm_dialog.dart';
 import '../../../../core/widgets/empty_state_view.dart';
 import '../../../../core/widgets/error_view.dart';
 import '../../../../core/widgets/loading_view.dart';
@@ -136,6 +137,29 @@ class _ImportsScreenState extends ConsumerState<ImportsScreen> {
     }
   }
 
+  Future<void> _confirmDeleteJob(ImportJob job) async {
+    final confirmed = await showConfirmDialog(
+      context,
+      title: 'Delete this import record?',
+      message: 'This removes "${job.fileName}" from Import History only — any customers, sales, or '
+          'picklists it already created are NOT affected. This cannot be undone.',
+      confirmLabel: 'Delete',
+    );
+    if (!confirmed) return;
+
+    final success = await ref.read(importMutationControllerProvider.notifier).deleteJob(job.id);
+    if (!mounted) return;
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Import record deleted.')));
+    } else {
+      final state = ref.read(importMutationControllerProvider);
+      final failure = state.hasError ? state.error as Failure : Failure.unknown();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(failure.message), backgroundColor: Theme.of(context).colorScheme.error),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final jobsAsync = ref.watch(importJobsListProvider);
@@ -223,7 +247,18 @@ class _ImportsScreenState extends ConsumerState<ImportsScreen> {
                         '${job.entityType} · ${Formatters.dateTime(job.createdAt)}'
                         '${job.totalRows != null ? ' · ${job.successRows}/${job.totalRows} succeeded' : ''}',
                       ),
-                      trailing: StatusBadge(label: job.status, color: _statusColor(job.status)),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          StatusBadge(label: job.status, color: _statusColor(job.status)),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline, size: 20),
+                            color: AppColors.error,
+                            tooltip: 'Delete this import record',
+                            onPressed: () => _confirmDeleteJob(job),
+                          ),
+                        ],
+                      ),
                       onTap: job.failedRows > 0 ? () => _showFailedRows(job) : null,
                     );
                   },

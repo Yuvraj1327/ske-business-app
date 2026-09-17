@@ -47,6 +47,22 @@ class ImportMutationController extends AsyncNotifier<void> {
       return null;
     }
   }
+
+  Future<bool> deleteJob(String jobId) async {
+    state = const AsyncLoading();
+    try {
+      await ref.read(importRepositoryProvider).deleteJob(jobId);
+      ref.invalidate(importJobsListProvider);
+      state = const AsyncData(null);
+      return true;
+    } on Failure catch (f) {
+      state = AsyncError(f, StackTrace.current);
+      return false;
+    } catch (e) {
+      state = AsyncError(Failure.unknown(e.toString()), StackTrace.current);
+      return false;
+    }
+  }
 }
 
 final importMutationControllerProvider = AsyncNotifierProvider<ImportMutationController, void>(
