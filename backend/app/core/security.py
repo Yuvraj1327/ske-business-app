@@ -5,8 +5,10 @@ internal `User` row (with role/permissions) for each request.
 Flow:
   1. Flutter authenticates against Supabase Auth directly and receives a JWT.
   2. Flutter sends that JWT as `Authorization: Bearer <token>` to FastAPI.
-  3. FastAPI verifies the JWT signature/expiry using SUPABASE_JWT_SECRET
-     (HS256, the default for Supabase project JWTs).
+  3. FastAPI verifies the JWT signature/expiry. Supabase projects sign JWTs
+     either with the legacy shared secret (HS256, via SUPABASE_JWT_SECRET) or,
+     for projects with "JWT Signing Keys" enabled, asymmetrically (ES256 or
+     RS256) — those are verified against the project's public JWKS instead.
   4. FastAPI looks up the internal `users` row by `auth_user_id` (the JWT's
      `sub` claim) to load role + permissions.
 
@@ -19,9 +21,11 @@ does not change the response sent to the client — it exists so a real
 "why did this login fail" question can be answered from server logs alone,
 without weakening the actual security check.
 """
+import time
 import uuid
 from dataclasses import dataclass, field
 
+import httpx
 from fastapi import Depends, Header
 from jose import JWTError, jwt
 from loguru import logger
@@ -34,6 +38,34 @@ from app.db.session import get_db
 from app.models.user import User
 
 settings = get_settings()
+
+# Algorithms Supabase is known to sign project JWTs with. Anything outside
+# this allowlist is rejected before we even look at a key, so a token can
+# never steer us into verifying itself with an unintended algorithm.
+_ALLOWED_ALGORITHMS = {"HS256", "ES256", "RS256"}
+
+_JWKS_URL = f"{settings.SUPABASE_URL}/auth/v1/.well-known/jwks.json"
+_JWKS_CACHE_TTL_SECONDS = 3600
+_jwks_cache: dict[str, dict] = {}
+_jwks_fetched_at: float = 0.0
+
+
+async def _fetch_jwks() -> None:
+    global _jwks_cache, _jwks_fetched_at
+    async with httpx.AsyncClient(timeout=5.0) as client:
+        response = await client.get(_JWKS_URL)
+        response.raise_for_status()
+    _jwks_cache = {key["kid"]: key for key in response.json().get("keys", [])}
+    _jwks_fetched_at = time.time()
+
+
+async def _get_jwk(kid: str) -> dict:
+    """Return the JWK for `kid`, refreshing the cache if it's stale or missing."""
+    if kid not in _jwks_cache or time.time() - _jwks_fetched_at > _JWKS_CACHE_TTL_SECONDS:
+        await _fetch_jwks()
+    if kid not in _jwks_cache:
+        raise JWTError(f"No JWKS key found for kid={kid}")
+    return _jwks_cache[kid]
 
 
 @dataclass
@@ -56,14 +88,28 @@ class CurrentUser:
         return self.role_name == "admin"
 
 
-def _decode_supabase_jwt(token: str) -> dict:
+async def _decode_supabase_jwt(token: str) -> dict:
     try:
-        # Supabase project JWTs are signed HS256 with the project's JWT secret.
+        alg = jwt.get_unverified_header(token).get("alg")
+        if alg not in _ALLOWED_ALGORITHMS:
+            raise JWTError(f"The specified alg value is not allowed: {alg}")
+
+        if alg == "HS256":
+            # Legacy Supabase projects: shared secret.
+            key = settings.SUPABASE_JWT_SECRET
+        else:
+            # Projects with JWT Signing Keys enabled sign asymmetrically
+            # (ES256/RS256); verify against the project's public JWKS.
+            kid = jwt.get_unverified_header(token).get("kid")
+            if not kid:
+                raise JWTError("Token header missing 'kid' for asymmetric algorithm")
+            key = await _get_jwk(kid)
+
         # `audience` is typically "authenticated" for logged-in users.
         payload = jwt.decode(
             token,
-            settings.SUPABASE_JWT_SECRET,
-            algorithms=["HS256"],
+            key,
+            algorithms=[alg],
             audience="authenticated",
             options={"verify_aud": True},
         )
@@ -73,9 +119,8 @@ def _decode_supabase_jwt(token: str) -> dict:
         # jose failure fired: ExpiredSignatureError (token genuinely
         # expired), JWTClaimsError (wrong audience — often means the
         # project uses a non-default JWT template), or a generic
-        # JWTError (wrong SUPABASE_JWT_SECRET / wrong signing algorithm,
-        # e.g. the project has asymmetric JWT signing keys enabled instead
-        # of the legacy HS256 shared secret this code assumes).
+        # JWTError (wrong SUPABASE_JWT_SECRET, wrong/missing JWKS key, or
+        # an algorithm outside our allowlist).
         logger.warning(f"JWT verification failed: {type(exc).__name__}: {exc}")
         raise UnauthorizedError("Invalid or expired authentication token") from exc
 
@@ -89,7 +134,7 @@ async def get_current_user(
         raise UnauthorizedError("Missing or malformed Authorization header")
 
     token = authorization.split(" ", 1)[1].strip()
-    payload = _decode_supabase_jwt(token)
+    payload = await _decode_supabase_jwt(token)
 
     auth_user_id_str = payload.get("sub")
     if not auth_user_id_str:
