@@ -46,6 +46,17 @@ class SettlementSheet extends Equatable {
   final String salesmanName;
   final String status; // draft | in_progress | completed
   final String? notes;
+  // General / reconciliation fields — manually entered by Admin.
+  final String? pickSheetNo;
+  final double pickSheetValue;
+  final double returnsGoods;
+  final double damageReturn;
+  final double discount;
+  final double cashAmount;
+  final double onlineAmount;
+  final double chequeAmount;
+  final double creditBills;
+  final double oldShort;
   final SettlementSheetSummary summary;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -60,6 +71,16 @@ class SettlementSheet extends Equatable {
     required this.salesmanName,
     required this.status,
     this.notes,
+    this.pickSheetNo,
+    required this.pickSheetValue,
+    required this.returnsGoods,
+    required this.damageReturn,
+    required this.discount,
+    required this.cashAmount,
+    required this.onlineAmount,
+    required this.chequeAmount,
+    required this.creditBills,
+    required this.oldShort,
     required this.summary,
     required this.createdAt,
     required this.updatedAt,
@@ -76,6 +97,16 @@ class SettlementSheet extends Equatable {
       salesmanName: json['salesman_name'] as String,
       status: json['status'] as String,
       notes: json['notes'] as String?,
+      pickSheetNo: json['pick_sheet_no'] as String?,
+      pickSheetValue: double.parse(json['pick_sheet_value'] as String),
+      returnsGoods: double.parse(json['returns_goods'] as String),
+      damageReturn: double.parse(json['damage_return'] as String),
+      discount: double.parse(json['discount'] as String),
+      cashAmount: double.parse(json['cash_amount'] as String),
+      onlineAmount: double.parse(json['online_amount'] as String),
+      chequeAmount: double.parse(json['cheque_amount'] as String),
+      creditBills: double.parse(json['credit_bills'] as String),
+      oldShort: double.parse(json['old_short'] as String),
       summary: SettlementSheetSummary.fromJson(json['summary'] as Map<String, dynamic>),
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
@@ -93,6 +124,16 @@ class SettlementSheet extends Equatable {
         salesmanName,
         status,
         notes,
+        pickSheetNo,
+        pickSheetValue,
+        returnsGoods,
+        damageReturn,
+        discount,
+        cashAmount,
+        onlineAmount,
+        chequeAmount,
+        creditBills,
+        oldShort,
         summary,
         createdAt,
         updatedAt,
@@ -107,8 +148,10 @@ class SettlementSheetItem extends Equatable {
   final String customerName;
   final double invoiceAmount;
   final String deliveryStatus; // pending | delivered | not_delivered
-  final double amountCollected;
-  final String paymentMode; // cash | online | credit | none
+  final double cashAmount;
+  final double onlineAmount;
+  final double chequeAmount;
+  final double totalCollected;
   final String? agentNotes;
   final double creditAmount;
   final double creditCollected;
@@ -124,8 +167,10 @@ class SettlementSheetItem extends Equatable {
     required this.customerName,
     required this.invoiceAmount,
     required this.deliveryStatus,
-    required this.amountCollected,
-    required this.paymentMode,
+    required this.cashAmount,
+    required this.onlineAmount,
+    required this.chequeAmount,
+    required this.totalCollected,
     this.agentNotes,
     required this.creditAmount,
     required this.creditCollected,
@@ -143,8 +188,10 @@ class SettlementSheetItem extends Equatable {
       customerName: json['customer_name'] as String,
       invoiceAmount: double.parse(json['invoice_amount'] as String),
       deliveryStatus: json['delivery_status'] as String,
-      amountCollected: double.parse(json['amount_collected'] as String),
-      paymentMode: json['payment_mode'] as String,
+      cashAmount: double.parse(json['cash_amount'] as String),
+      onlineAmount: double.parse(json['online_amount'] as String),
+      chequeAmount: double.parse(json['cheque_amount'] as String),
+      totalCollected: double.parse(json['total_collected'] as String),
       agentNotes: json['agent_notes'] as String?,
       creditAmount: double.parse(json['credit_amount'] as String),
       creditCollected: double.parse(json['credit_collected'] as String),
@@ -163,8 +210,10 @@ class SettlementSheetItem extends Equatable {
         customerName,
         invoiceAmount,
         deliveryStatus,
-        amountCollected,
-        paymentMode,
+        cashAmount,
+        onlineAmount,
+        chequeAmount,
+        totalCollected,
         agentNotes,
         creditAmount,
         creditCollected,
@@ -187,6 +236,16 @@ class SettlementSheetDetail extends SettlementSheet {
     required super.salesmanName,
     required super.status,
     super.notes,
+    super.pickSheetNo,
+    required super.pickSheetValue,
+    required super.returnsGoods,
+    required super.damageReturn,
+    required super.discount,
+    required super.cashAmount,
+    required super.onlineAmount,
+    required super.chequeAmount,
+    required super.creditBills,
+    required super.oldShort,
     required super.summary,
     required super.createdAt,
     required super.updatedAt,
@@ -205,6 +264,16 @@ class SettlementSheetDetail extends SettlementSheet {
       salesmanName: base.salesmanName,
       status: base.status,
       notes: base.notes,
+      pickSheetNo: base.pickSheetNo,
+      pickSheetValue: base.pickSheetValue,
+      returnsGoods: base.returnsGoods,
+      damageReturn: base.damageReturn,
+      discount: base.discount,
+      cashAmount: base.cashAmount,
+      onlineAmount: base.onlineAmount,
+      chequeAmount: base.chequeAmount,
+      creditBills: base.creditBills,
+      oldShort: base.oldShort,
       summary: base.summary,
       createdAt: base.createdAt,
       updatedAt: base.updatedAt,

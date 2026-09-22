@@ -97,6 +97,16 @@ class SettlementMutationController extends AsyncNotifier<void> {
     required String deliveryAgentId,
     required String salesmanId,
     String? notes,
+    String? pickSheetNo,
+    double pickSheetValue = 0,
+    double returnsGoods = 0,
+    double damageReturn = 0,
+    double discount = 0,
+    double cashAmount = 0,
+    double onlineAmount = 0,
+    double chequeAmount = 0,
+    double creditBills = 0,
+    double oldShort = 0,
     required List<DraftSettlementRow> items,
   }) async {
     state = const AsyncLoading();
@@ -106,6 +116,16 @@ class SettlementMutationController extends AsyncNotifier<void> {
         deliveryAgentId: deliveryAgentId,
         salesmanId: salesmanId,
         notes: notes,
+        pickSheetNo: pickSheetNo,
+        pickSheetValue: pickSheetValue,
+        returnsGoods: returnsGoods,
+        damageReturn: damageReturn,
+        discount: discount,
+        cashAmount: cashAmount,
+        onlineAmount: onlineAmount,
+        chequeAmount: chequeAmount,
+        creditBills: creditBills,
+        oldShort: oldShort,
         items: items,
       );
       ref.invalidate(settlementsListProvider);
@@ -123,20 +143,62 @@ class SettlementMutationController extends AsyncNotifier<void> {
   Future<bool> updateStatus(String sheetId, String status) =>
       _run(() => _repo.updateStatus(sheetId, status), sheetId: sheetId);
 
+  Future<bool> updateSheetHeader({
+    required String sheetId,
+    DateTime? sheetDate,
+    String? deliveryAgentId,
+    String? salesmanId,
+    String? notes,
+    String? pickSheetNo,
+    double? pickSheetValue,
+    double? returnsGoods,
+    double? damageReturn,
+    double? discount,
+    double? cashAmount,
+    double? onlineAmount,
+    double? chequeAmount,
+    double? creditBills,
+    double? oldShort,
+  }) =>
+      _run(
+        () => _repo.updateSheet(
+          sheetId,
+          sheetDate: sheetDate,
+          deliveryAgentId: deliveryAgentId,
+          salesmanId: salesmanId,
+          notes: notes,
+          pickSheetNo: pickSheetNo,
+          pickSheetValue: pickSheetValue,
+          returnsGoods: returnsGoods,
+          damageReturn: damageReturn,
+          discount: discount,
+          cashAmount: cashAmount,
+          onlineAmount: onlineAmount,
+          chequeAmount: chequeAmount,
+          creditBills: creditBills,
+          oldShort: oldShort,
+        ),
+        sheetId: sheetId,
+      );
+
   Future<bool> updateItemDelivery({
     required String sheetId,
     required String itemId,
     required String deliveryStatus,
-    required double amountCollected,
-    required String paymentMode,
+    required double cashAmount,
+    required double onlineAmount,
+    required double chequeAmount,
+    required double creditAmount,
     String? agentNotes,
   }) =>
       _run(
         () => _repo.updateItemDelivery(
           itemId: itemId,
           deliveryStatus: deliveryStatus,
-          amountCollected: amountCollected,
-          paymentMode: paymentMode,
+          cashAmount: cashAmount,
+          onlineAmount: onlineAmount,
+          chequeAmount: chequeAmount,
+          creditAmount: creditAmount,
           agentNotes: agentNotes,
         ),
         sheetId: sheetId,

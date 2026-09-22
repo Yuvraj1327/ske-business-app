@@ -6,13 +6,17 @@ collection route for a given date (one agent + one salesman, multiple
 customers), moved through Draft -> In Progress -> Completed by Admin, with
 the two "halves" of each row filled in by two different people:
 
-  - Delivery half (delivery_status / amount_collected / payment_mode /
-    agent_notes) — the assigned Delivery Agent, only while 'in_progress'.
+  - Delivery half (delivery_status / cash_amount / online_amount /
+    cheque_amount / credit_amount / agent_notes) — the assigned Delivery
+    Agent, only while 'in_progress'. The three collected amounts are split
+    by mode since one delivery can be paid across several; credit_amount is
+    whatever's left as credit/udhaar.
   - Credit/Udhaar half (credit_collected / salesman_notes) — the assigned
     Salesman, only while 'in_progress'.
 
-Admin has full access throughout (creates the sheet in 'draft', moves it to
-'in_progress', can also record either half if needed, and moves it to
+Admin has full access throughout (creates the sheet in 'draft', can edit its
+header/general fields via update_sheet up until it's 'completed', moves it
+to 'in_progress', can also record either half if needed, and moves it to
 'completed' once reviewed).
 
 Distinct from PicklistService (see picklist_service.py's module docstring
@@ -41,6 +45,7 @@ from app.schemas.settlement import (
     SettlementSheetDetailResponse,
     SettlementSheetResponse,
     SettlementSheetSummary,
+    SettlementSheetUpdateRequest,
     SettlementItemResponse,
 )
 from app.utils.pagination import PaginationParams
@@ -124,7 +129,9 @@ class SettlementService:
         salesman = salesman_result.scalar_one_or_none()
 
         total_invoice_amount = sum((i.invoice_amount for i in sheet.items), Decimal("0"))
-        total_collected = sum((i.amount_collected for i in sheet.items), Decimal("0"))
+        total_collected = sum(
+            ((i.cash_amount + i.online_amount + i.cheque_amount) for i in sheet.items), Decimal("0")
+        )
         total_credit_outstanding = sum(((i.credit_amount - i.credit_collected) for i in sheet.items), Decimal("0"))
         delivered = sum(1 for i in sheet.items if i.delivery_status == "delivered")
         not_delivered = sum(1 for i in sheet.items if i.delivery_status == "not_delivered")
@@ -140,6 +147,16 @@ class SettlementService:
             salesman_name=salesman.full_name if salesman else "",
             status=sheet.status,
             notes=sheet.notes,
+            pick_sheet_no=sheet.pick_sheet_no,
+            pick_sheet_value=money_str(sheet.pick_sheet_value),
+            returns_goods=money_str(sheet.returns_goods),
+            damage_return=money_str(sheet.damage_return),
+            discount=money_str(sheet.discount),
+            cash_amount=money_str(sheet.cash_amount),
+            online_amount=money_str(sheet.online_amount),
+            cheque_amount=money_str(sheet.cheque_amount),
+            credit_bills=money_str(sheet.credit_bills),
+            old_short=money_str(sheet.old_short),
             summary=SettlementSheetSummary(
                 total_items=len(sheet.items),
                 delivered=delivered,
@@ -191,6 +208,16 @@ class SettlementService:
             salesman_id=salesman.id,
             status="draft",
             notes=payload.notes,
+            pick_sheet_no=payload.pick_sheet_no,
+            pick_sheet_value=payload.pick_sheet_value,
+            returns_goods=payload.returns_goods,
+            damage_return=payload.damage_return,
+            discount=payload.discount,
+            cash_amount=payload.cash_amount,
+            online_amount=payload.online_amount,
+            cheque_amount=payload.cheque_amount,
+            credit_bills=payload.credit_bills,
+            old_short=payload.old_short,
             created_by=current_user.id,
         )
         sheet.items = items
@@ -217,6 +244,37 @@ class SettlementService:
         admin-only, manually-triggered creation flow."""
         count_today = await self.sheets.count_for_date(sheet_date)
         return f"SET-{sheet_date.strftime('%Y%m%d')}-{count_today + 1:03d}"
+
+    async def update_sheet(
+        self, sheet_id: uuid.UUID, payload: SettlementSheetUpdateRequest, current_user: CurrentUser
+    ) -> SettlementSheetDetailResponse:
+        """Admin-only partial update to a sheet's header/general fields —
+        the only way to correct them once created. Locked once 'completed',
+        same as the sheet as a whole becoming read-only at that point."""
+        if not current_user.has_permission("settlements.manage"):
+            raise PermissionDeniedError("Only an admin can edit a settlement sheet's details.")
+
+        sheet = await self.sheets.get_by_id(sheet_id)
+        if sheet is None:
+            raise NotFoundError("Settlement sheet not found")
+
+        if sheet.status == "completed":
+            raise BusinessRuleError("A completed settlement sheet's details can no longer be edited.")
+
+        if payload.delivery_agent_id is not None:
+            agent = await self._require_user_with_role(payload.delivery_agent_id, "delivery_agent")
+            sheet.delivery_agent_id = agent.id
+        if payload.salesman_id is not None:
+            salesman = await self._require_user_with_role(payload.salesman_id, "salesman")
+            sheet.salesman_id = salesman.id
+
+        updates = payload.model_dump(exclude={"delivery_agent_id", "salesman_id"}, exclude_unset=True)
+        for field, value in updates.items():
+            setattr(sheet, field, value)
+
+        await self.sheets.save(sheet)
+        await self.db.commit()
+        return await self.get_sheet(sheet_id, current_user)
 
     async def update_status(
         self, sheet_id: uuid.UUID, new_status: str, current_user: CurrentUser
@@ -263,19 +321,36 @@ class SettlementService:
                 "Delivery details can only be updated while the sheet is 'in_progress'."
             )
 
+        new_credit_amount = Decimal("0") if payload.delivery_status == "not_delivered" else payload.credit_amount
+        if new_credit_amount < item.credit_collected:
+            raise BusinessRuleError(
+                f"Credit amount ({money_str(new_credit_amount)}) cannot be reduced below what the "
+                f"salesman has already collected against this row ({money_str(item.credit_collected)})."
+            )
+
         if payload.delivery_status == "not_delivered":
             item.delivery_status = "not_delivered"
-            item.amount_collected = Decimal("0")
-            item.payment_mode = "none"
+            item.cash_amount = Decimal("0")
+            item.online_amount = Decimal("0")
+            item.cheque_amount = Decimal("0")
+            item.credit_amount = Decimal("0")
         else:
-            if payload.payment_mode in ("cash", "online") and payload.amount_collected <= 0:
+            if (
+                payload.cash_amount <= 0
+                and payload.online_amount <= 0
+                and payload.cheque_amount <= 0
+                and payload.credit_amount <= 0
+            ):
                 raise ValidationError(
-                    "Amount collected must be greater than 0 for a cash or online payment.",
-                    field="amount_collected",
+                    "At least one of cash, online, cheque or credit amount must be greater than 0 "
+                    "for a delivered row.",
+                    field="cash_amount",
                 )
             item.delivery_status = payload.delivery_status
-            item.amount_collected = payload.amount_collected
-            item.payment_mode = payload.payment_mode
+            item.cash_amount = payload.cash_amount
+            item.online_amount = payload.online_amount
+            item.cheque_amount = payload.cheque_amount
+            item.credit_amount = payload.credit_amount
 
         item.agent_notes = payload.agent_notes
         item.updated_at = datetime.utcnow()

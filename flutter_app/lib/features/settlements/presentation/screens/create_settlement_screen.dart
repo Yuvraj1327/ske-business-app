@@ -29,13 +29,35 @@ class _CreateSettlementScreenState extends ConsumerState<CreateSettlementScreen>
   String? _deliveryAgentId;
   String? _salesmanId;
   final _notesController = TextEditingController();
+  final _pickSheetNoController = TextEditingController();
+  final _pickSheetValueController = TextEditingController(text: '0');
+  final _returnsGoodsController = TextEditingController(text: '0');
+  final _damageReturnController = TextEditingController(text: '0');
+  final _discountController = TextEditingController(text: '0');
+  final _cashController = TextEditingController(text: '0');
+  final _onlineController = TextEditingController(text: '0');
+  final _chequeController = TextEditingController(text: '0');
+  final _creditBillsController = TextEditingController(text: '0');
+  final _oldShortController = TextEditingController(text: '0');
   final List<DraftSettlementRow> _rows = [];
 
   @override
   void dispose() {
     _notesController.dispose();
+    _pickSheetNoController.dispose();
+    _pickSheetValueController.dispose();
+    _returnsGoodsController.dispose();
+    _damageReturnController.dispose();
+    _discountController.dispose();
+    _cashController.dispose();
+    _onlineController.dispose();
+    _chequeController.dispose();
+    _creditBillsController.dispose();
+    _oldShortController.dispose();
     super.dispose();
   }
+
+  double _num(TextEditingController c) => double.tryParse(c.text.trim()) ?? 0;
 
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
@@ -71,6 +93,16 @@ class _CreateSettlementScreenState extends ConsumerState<CreateSettlementScreen>
           deliveryAgentId: _deliveryAgentId!,
           salesmanId: _salesmanId!,
           notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
+          pickSheetNo: _pickSheetNoController.text.trim().isEmpty ? null : _pickSheetNoController.text.trim(),
+          pickSheetValue: _num(_pickSheetValueController),
+          returnsGoods: _num(_returnsGoodsController),
+          damageReturn: _num(_damageReturnController),
+          discount: _num(_discountController),
+          cashAmount: _num(_cashController),
+          onlineAmount: _num(_onlineController),
+          chequeAmount: _num(_chequeController),
+          creditBills: _num(_creditBillsController),
+          oldShort: _num(_oldShortController),
           items: _rows,
         );
 
@@ -130,7 +162,7 @@ class _CreateSettlementScreenState extends ConsumerState<CreateSettlementScreen>
                     error: (e, _) => Text('Could not load salesmen: $e'),
                     data: (salesmen) => DropdownButtonFormField<String>(
                       value: _salesmanId,
-                      decoration: const InputDecoration(labelText: 'Salesman'),
+                      decoration: const InputDecoration(labelText: 'PSR / Salesman'),
                       items: salesmen
                           .map((s) => DropdownMenuItem(value: s.id, child: Text(s.fullName)))
                           .toList(),
@@ -139,6 +171,79 @@ class _CreateSettlementScreenState extends ConsumerState<CreateSettlementScreen>
                   ),
                   const SizedBox(height: 14),
                   AppTextField(label: 'Notes (optional)', controller: _notesController, maxLines: 2),
+                  const SizedBox(height: 24),
+                  Text('General Settlement Details', style: AppTextStyles.heading3),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Reconciliation totals for this route — Admin can edit these anytime before the sheet is completed.',
+                    style: AppTextStyles.bodySecondary,
+                  ),
+                  const SizedBox(height: 12),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          AppTextField(label: 'Pick Sheet No.', controller: _pickSheetNoController),
+                          const SizedBox(height: 14),
+                          AppTextField(
+                            label: 'Pick Sheet Value',
+                            controller: _pickSheetValueController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          ),
+                          const SizedBox(height: 14),
+                          AppTextField(
+                            label: 'Returns Goods',
+                            controller: _returnsGoodsController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          ),
+                          const SizedBox(height: 14),
+                          AppTextField(
+                            label: 'Damage Return',
+                            controller: _damageReturnController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          ),
+                          const SizedBox(height: 14),
+                          AppTextField(
+                            label: 'Discount',
+                            controller: _discountController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          ),
+                          const SizedBox(height: 14),
+                          AppTextField(
+                            label: 'Cash',
+                            controller: _cashController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          ),
+                          const SizedBox(height: 14),
+                          AppTextField(
+                            label: 'Online / Bank / UPI',
+                            controller: _onlineController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          ),
+                          const SizedBox(height: 14),
+                          AppTextField(
+                            label: 'Cheque',
+                            controller: _chequeController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          ),
+                          const SizedBox(height: 14),
+                          AppTextField(
+                            label: 'Credit Bills',
+                            controller: _creditBillsController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          ),
+                          const SizedBox(height: 14),
+                          AppTextField(
+                            label: 'Old Short',
+                            controller: _oldShortController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 20),
                   Row(
                     children: [

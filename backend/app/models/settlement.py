@@ -14,9 +14,6 @@ SettlementStatusEnum = ENUM(
 SettlementDeliveryStatusEnum = ENUM(
     "pending", "delivered", "not_delivered", name="settlement_delivery_status_enum", create_type=False
 )
-SettlementPaymentModeEnum = ENUM(
-    "cash", "online", "credit", "none", name="settlement_payment_mode_enum", create_type=False
-)
 
 
 class SettlementSheet(Base):
@@ -29,6 +26,21 @@ class SettlementSheet(Base):
     salesman_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     status: Mapped[str] = mapped_column(SettlementStatusEnum, nullable=False, default="draft")
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # General / reconciliation fields — manually entered by Admin, independent
+    # of whatever the Delivery Agent/Salesman later record per customer row.
+    # See database/migrations/005_settlement_sheet_fields.sql.
+    pick_sheet_no: Mapped[str | None] = mapped_column(String, nullable=True)
+    pick_sheet_value: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
+    returns_goods: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
+    damage_return: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
+    discount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
+    cash_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
+    online_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
+    cheque_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
+    credit_bills: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
+    old_short: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
+
     created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
@@ -51,10 +63,13 @@ class SettlementSheetItem(Base):
     customer_name: Mapped[str] = mapped_column(String, nullable=False)
     invoice_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
 
-    # Delivery half — Delivery Agent.
+    # Delivery half — Delivery Agent. Split across modes since one delivery
+    # can be paid partly in cash, partly online, partly by cheque, with the
+    # remainder left as credit/udhaar.
     delivery_status: Mapped[str] = mapped_column(SettlementDeliveryStatusEnum, nullable=False, default="pending")
-    amount_collected: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
-    payment_mode: Mapped[str] = mapped_column(SettlementPaymentModeEnum, nullable=False, default="none")
+    cash_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
+    online_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
+    cheque_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
     agent_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Credit / Udhaar half — Salesman.

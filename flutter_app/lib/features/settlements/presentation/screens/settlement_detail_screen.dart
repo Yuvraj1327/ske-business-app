@@ -7,6 +7,7 @@ import '../../../../core/auth/auth_state.dart';
 import '../../../../core/errors/failure.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/app_button.dart';
+import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/widgets/error_view.dart';
 import '../../../../core/widgets/loading_view.dart';
 import '../../../../core/widgets/status_badge.dart';
@@ -22,14 +23,24 @@ import '../providers/settlement_providers.dart';
 ///     the sheet is 'in_progress'.
 ///   - The assigned Salesman: update each row's Credit/Udhaar half while
 ///     the sheet is 'in_progress'.
-class SettlementDetailScreen extends ConsumerWidget {
+class SettlementDetailScreen extends ConsumerStatefulWidget {
   const SettlementDetailScreen({super.key, required this.sheetId});
 
   final String sheetId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final detailAsync = ref.watch(settlementDetailProvider(sheetId));
+  ConsumerState<SettlementDetailScreen> createState() => _SettlementDetailScreenState();
+}
+
+class _SettlementDetailScreenState extends ConsumerState<SettlementDetailScreen> {
+  // Salesman-only working view: by default only show rows with a
+  // credit/udhaar amount, since that's the only half of the sheet a
+  // Salesman acts on. Admin and the Delivery Agent always see every row.
+  bool _creditOnlyFilter = true;
+
+  @override
+  Widget build(BuildContext context) {
+    final detailAsync = ref.watch(settlementDetailProvider(widget.sheetId));
     final user = ref.watch(currentUserProvider).valueOrNull;
 
     return Padding(
@@ -38,29 +49,49 @@ class SettlementDetailScreen extends ConsumerWidget {
         loading: () => const LoadingView(),
         error: (e, _) => ErrorView(
           failure: e is Failure ? e : Failure.unknown(e.toString()),
-          onRetry: () => ref.invalidate(settlementDetailProvider(sheetId)),
+          onRetry: () => ref.invalidate(settlementDetailProvider(widget.sheetId)),
         ),
         data: (sheet) {
           final isAdmin = user?.isAdmin ?? false;
           final isAgent = user != null && user.id == sheet.deliveryAgentId;
           final isSalesman = user != null && user.id == sheet.salesmanId;
+          final isSalesmanOnly = isSalesman && !isAdmin && !isAgent;
+
+          final visibleItems = (isSalesmanOnly && _creditOnlyFilter)
+              ? sheet.items.where((i) => i.creditAmount > 0).toList()
+              : sheet.items;
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _Header(sheet: sheet, isAdmin: isAdmin),
               const SizedBox(height: 16),
-              Expanded(
-                child: ListView.separated(
-                  itemCount: sheet.items.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 10),
-                  itemBuilder: (context, i) => _ItemCard(
-                    sheet: sheet,
-                    item: sheet.items[i],
-                    canEditDelivery: (isAdmin || isAgent) && sheet.status == 'in_progress',
-                    canEditCredit: (isAdmin || isSalesman) && sheet.status == 'in_progress',
-                  ),
+              if (isSalesmanOnly) ...[
+                Row(
+                  children: [
+                    Text('Customers (${visibleItems.length})', style: AppTextStyles.heading3),
+                    const Spacer(),
+                    TextButton(
+                      onPressed: () => setState(() => _creditOnlyFilter = !_creditOnlyFilter),
+                      child: Text(_creditOnlyFilter ? 'Show all customers' : 'Credit customers only'),
+                    ),
+                  ],
                 ),
+                const SizedBox(height: 8),
+              ],
+              Expanded(
+                child: visibleItems.isEmpty
+                    ? Text('No credit/udhaar customers on this sheet.', style: AppTextStyles.bodySecondary)
+                    : ListView.separated(
+                        itemCount: visibleItems.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 10),
+                        itemBuilder: (context, i) => _ItemCard(
+                          sheet: sheet,
+                          item: visibleItems[i],
+                          canEditDelivery: (isAdmin || isAgent) && sheet.status == 'in_progress',
+                          canEditCredit: (isAdmin || isSalesman) && sheet.status == 'in_progress',
+                        ),
+                      ),
               ),
             ],
           );
@@ -70,11 +101,58 @@ class SettlementDetailScreen extends ConsumerWidget {
   }
 }
 
-class _Header extends ConsumerWidget {
+class _Header extends ConsumerStatefulWidget {
   const _Header({required this.sheet, required this.isAdmin});
 
   final SettlementSheetDetail sheet;
   final bool isAdmin;
+
+  @override
+  ConsumerState<_Header> createState() => _HeaderState();
+}
+
+class _HeaderState extends ConsumerState<_Header> {
+  bool _editingHeader = false;
+
+  late final TextEditingController _notesController = TextEditingController(text: widget.sheet.notes ?? '');
+  late final TextEditingController _pickSheetNoController =
+      TextEditingController(text: widget.sheet.pickSheetNo ?? '');
+  late final TextEditingController _pickSheetValueController =
+      TextEditingController(text: widget.sheet.pickSheetValue.toStringAsFixed(2));
+  late final TextEditingController _returnsGoodsController =
+      TextEditingController(text: widget.sheet.returnsGoods.toStringAsFixed(2));
+  late final TextEditingController _damageReturnController =
+      TextEditingController(text: widget.sheet.damageReturn.toStringAsFixed(2));
+  late final TextEditingController _discountController =
+      TextEditingController(text: widget.sheet.discount.toStringAsFixed(2));
+  late final TextEditingController _cashController =
+      TextEditingController(text: widget.sheet.cashAmount.toStringAsFixed(2));
+  late final TextEditingController _onlineController =
+      TextEditingController(text: widget.sheet.onlineAmount.toStringAsFixed(2));
+  late final TextEditingController _chequeController =
+      TextEditingController(text: widget.sheet.chequeAmount.toStringAsFixed(2));
+  late final TextEditingController _creditBillsController =
+      TextEditingController(text: widget.sheet.creditBills.toStringAsFixed(2));
+  late final TextEditingController _oldShortController =
+      TextEditingController(text: widget.sheet.oldShort.toStringAsFixed(2));
+
+  @override
+  void dispose() {
+    _notesController.dispose();
+    _pickSheetNoController.dispose();
+    _pickSheetValueController.dispose();
+    _returnsGoodsController.dispose();
+    _damageReturnController.dispose();
+    _discountController.dispose();
+    _cashController.dispose();
+    _onlineController.dispose();
+    _chequeController.dispose();
+    _creditBillsController.dispose();
+    _oldShortController.dispose();
+    super.dispose();
+  }
+
+  double _num(TextEditingController c) => double.tryParse(c.text.trim()) ?? 0;
 
   Color _statusColor(String status) {
     switch (status) {
@@ -87,22 +165,50 @@ class _Header extends ConsumerWidget {
     }
   }
 
-  Future<void> _changeStatus(BuildContext context, WidgetRef ref, String newStatus) async {
+  Future<void> _changeStatus(String newStatus) async {
     final success =
-        await ref.read(settlementMutationControllerProvider.notifier).updateStatus(sheet.id, newStatus);
-    if (!context.mounted) return;
-    if (!success) {
-      final state = ref.read(settlementMutationControllerProvider);
-      final failure = state.hasError ? state.error as Failure : Failure.unknown();
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(failure.message), backgroundColor: Theme.of(context).colorScheme.error));
+        await ref.read(settlementMutationControllerProvider.notifier).updateStatus(widget.sheet.id, newStatus);
+    if (!mounted) return;
+    if (!success) _showError();
+  }
+
+  Future<void> _saveHeader() async {
+    final success = await ref.read(settlementMutationControllerProvider.notifier).updateSheetHeader(
+          sheetId: widget.sheet.id,
+          notes: _notesController.text.trim(),
+          pickSheetNo: _pickSheetNoController.text.trim(),
+          pickSheetValue: _num(_pickSheetValueController),
+          returnsGoods: _num(_returnsGoodsController),
+          damageReturn: _num(_damageReturnController),
+          discount: _num(_discountController),
+          cashAmount: _num(_cashController),
+          onlineAmount: _num(_onlineController),
+          chequeAmount: _num(_chequeController),
+          creditBills: _num(_creditBillsController),
+          oldShort: _num(_oldShortController),
+        );
+    if (!mounted) return;
+    if (success) {
+      setState(() => _editingHeader = false);
+    } else {
+      _showError();
     }
   }
 
+  void _showError() {
+    final state = ref.read(settlementMutationControllerProvider);
+    final failure = state.hasError ? state.error as Failure : Failure.unknown();
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(failure.message), backgroundColor: Theme.of(context).colorScheme.error));
+  }
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
+    final sheet = widget.sheet;
+    final isAdmin = widget.isAdmin;
     final mutationState = ref.watch(settlementMutationControllerProvider);
     final summary = sheet.summary;
+    final canEditHeader = isAdmin && sheet.status != 'completed';
 
     return Card(
       child: Padding(
@@ -118,10 +224,10 @@ class _Header extends ConsumerWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              '${Formatters.date(sheet.sheetDate)} · Agent: ${sheet.deliveryAgentName} · Salesman: ${sheet.salesmanName}',
+              '${Formatters.date(sheet.sheetDate)} · Agent: ${sheet.deliveryAgentName} · PSR/Salesman: ${sheet.salesmanName}',
               style: AppTextStyles.bodySecondary,
             ),
-            if (sheet.notes != null && sheet.notes!.isNotEmpty) ...[
+            if (!_editingHeader && sheet.notes != null && sheet.notes!.isNotEmpty) ...[
               const SizedBox(height: 8),
               Text(sheet.notes!, style: AppTextStyles.body),
             ],
@@ -136,7 +242,110 @@ class _Header extends ConsumerWidget {
                 _StatLabel(label: 'Pending Rows', value: '${summary.pending}'),
               ],
             ),
-            if (isAdmin) ...[
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Text('Settlement Summary', style: AppTextStyles.heading3),
+                const Spacer(),
+                if (canEditHeader && !_editingHeader)
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined),
+                    tooltip: 'Edit settlement details',
+                    onPressed: () => setState(() => _editingHeader = true),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (!_editingHeader)
+              Wrap(
+                spacing: 20,
+                runSpacing: 8,
+                children: [
+                  _StatLabel(label: 'Pick Sheet No.', value: sheet.pickSheetNo?.isNotEmpty == true ? sheet.pickSheetNo! : '-'),
+                  _StatLabel(label: 'Pick Sheet Value', value: Formatters.currency(sheet.pickSheetValue)),
+                  _StatLabel(label: 'Returns Goods', value: Formatters.currency(sheet.returnsGoods)),
+                  _StatLabel(label: 'Damage Return', value: Formatters.currency(sheet.damageReturn)),
+                  _StatLabel(label: 'Discount', value: Formatters.currency(sheet.discount)),
+                  _StatLabel(label: 'Cash', value: Formatters.currency(sheet.cashAmount)),
+                  _StatLabel(label: 'Online / Bank / UPI', value: Formatters.currency(sheet.onlineAmount)),
+                  _StatLabel(label: 'Cheque', value: Formatters.currency(sheet.chequeAmount)),
+                  _StatLabel(label: 'Credit Bills', value: Formatters.currency(sheet.creditBills)),
+                  _StatLabel(label: 'Old Short', value: Formatters.currency(sheet.oldShort)),
+                ],
+              )
+            else ...[
+              AppTextField(label: 'Pick Sheet No.', controller: _pickSheetNoController),
+              const SizedBox(height: 12),
+              AppTextField(
+                label: 'Pick Sheet Value',
+                controller: _pickSheetValueController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              ),
+              const SizedBox(height: 12),
+              AppTextField(
+                label: 'Returns Goods',
+                controller: _returnsGoodsController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              ),
+              const SizedBox(height: 12),
+              AppTextField(
+                label: 'Damage Return',
+                controller: _damageReturnController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              ),
+              const SizedBox(height: 12),
+              AppTextField(
+                label: 'Discount',
+                controller: _discountController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              ),
+              const SizedBox(height: 12),
+              AppTextField(
+                label: 'Cash',
+                controller: _cashController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              ),
+              const SizedBox(height: 12),
+              AppTextField(
+                label: 'Online / Bank / UPI',
+                controller: _onlineController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              ),
+              const SizedBox(height: 12),
+              AppTextField(
+                label: 'Cheque',
+                controller: _chequeController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              ),
+              const SizedBox(height: 12),
+              AppTextField(
+                label: 'Credit Bills',
+                controller: _creditBillsController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              ),
+              const SizedBox(height: 12),
+              AppTextField(
+                label: 'Old Short',
+                controller: _oldShortController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              ),
+              const SizedBox(height: 12),
+              AppTextField(label: 'Notes (optional)', controller: _notesController, maxLines: 2),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  TextButton(onPressed: () => setState(() => _editingHeader = false), child: const Text('Cancel')),
+                  const Spacer(),
+                  AppButton(
+                    label: 'Save',
+                    expand: false,
+                    isLoading: mutationState.isLoading,
+                    onPressed: _saveHeader,
+                  ),
+                ],
+              ),
+            ],
+            if (isAdmin && !_editingHeader) ...[
               const SizedBox(height: 14),
               Row(
                 children: [
@@ -145,14 +354,14 @@ class _Header extends ConsumerWidget {
                       label: 'Start (Move to In Progress)',
                       expand: false,
                       isLoading: mutationState.isLoading,
-                      onPressed: () => _changeStatus(context, ref, 'in_progress'),
+                      onPressed: () => _changeStatus('in_progress'),
                     ),
                   if (sheet.status == 'in_progress')
                     AppButton(
                       label: 'Complete Sheet',
                       expand: false,
                       isLoading: mutationState.isLoading,
-                      onPressed: () => _changeStatus(context, ref, 'completed'),
+                      onPressed: () => _changeStatus('completed'),
                     ),
                 ],
               ),
@@ -204,9 +413,14 @@ class _ItemCardState extends ConsumerState<_ItemCard> {
   bool _editingCredit = false;
 
   late String _deliveryStatus = widget.item.deliveryStatus == 'pending' ? 'delivered' : widget.item.deliveryStatus;
-  late final TextEditingController _amountCollectedController =
-      TextEditingController(text: widget.item.amountCollected.toStringAsFixed(2));
-  String _paymentMode = 'cash';
+  late final TextEditingController _cashController =
+      TextEditingController(text: widget.item.cashAmount.toStringAsFixed(2));
+  late final TextEditingController _onlineController =
+      TextEditingController(text: widget.item.onlineAmount.toStringAsFixed(2));
+  late final TextEditingController _chequeController =
+      TextEditingController(text: widget.item.chequeAmount.toStringAsFixed(2));
+  late final TextEditingController _creditAmountController =
+      TextEditingController(text: widget.item.creditAmount.toStringAsFixed(2));
   late final TextEditingController _agentNotesController = TextEditingController(text: widget.item.agentNotes ?? '');
 
   late final TextEditingController _creditCollectedController =
@@ -214,9 +428,14 @@ class _ItemCardState extends ConsumerState<_ItemCard> {
   late final TextEditingController _salesmanNotesController =
       TextEditingController(text: widget.item.salesmanNotes ?? '');
 
+  double _num(TextEditingController c) => double.tryParse(c.text.trim()) ?? 0;
+
   @override
   void dispose() {
-    _amountCollectedController.dispose();
+    _cashController.dispose();
+    _onlineController.dispose();
+    _chequeController.dispose();
+    _creditAmountController.dispose();
     _agentNotesController.dispose();
     _creditCollectedController.dispose();
     _salesmanNotesController.dispose();
@@ -235,13 +454,15 @@ class _ItemCardState extends ConsumerState<_ItemCard> {
   }
 
   Future<void> _saveDelivery() async {
-    final amount = double.tryParse(_amountCollectedController.text.trim()) ?? 0;
+    final notDelivered = _deliveryStatus == 'not_delivered';
     final success = await ref.read(settlementMutationControllerProvider.notifier).updateItemDelivery(
           sheetId: widget.sheet.id,
           itemId: widget.item.id,
           deliveryStatus: _deliveryStatus,
-          amountCollected: _deliveryStatus == 'not_delivered' ? 0 : amount,
-          paymentMode: _deliveryStatus == 'not_delivered' ? 'none' : _paymentMode,
+          cashAmount: notDelivered ? 0 : _num(_cashController),
+          onlineAmount: notDelivered ? 0 : _num(_onlineController),
+          chequeAmount: notDelivered ? 0 : _num(_chequeController),
+          creditAmount: notDelivered ? 0 : _num(_creditAmountController),
           agentNotes: _agentNotesController.text.trim().isEmpty ? null : _agentNotesController.text.trim(),
         );
     if (!mounted) return;
@@ -301,8 +522,12 @@ class _ItemCardState extends ConsumerState<_ItemCard> {
               runSpacing: 6,
               children: [
                 StatusBadge(label: Formatters.roleLabel(item.deliveryStatus), color: _deliveryColor(item.deliveryStatus)),
-                if (item.amountCollected > 0)
-                  StatusBadge(label: '${Formatters.currency(item.amountCollected)} (${item.paymentMode})', color: AppColors.success),
+                if (item.cashAmount > 0)
+                  StatusBadge(label: 'Cash ${Formatters.currency(item.cashAmount)}', color: AppColors.success),
+                if (item.onlineAmount > 0)
+                  StatusBadge(label: 'Online ${Formatters.currency(item.onlineAmount)}', color: AppColors.success),
+                if (item.chequeAmount > 0)
+                  StatusBadge(label: 'Cheque ${Formatters.currency(item.chequeAmount)}', color: AppColors.success),
                 if (item.creditAmount > 0)
                   StatusBadge(
                     label: 'Credit ${Formatters.currency(item.creditCollected)}/${Formatters.currency(item.creditAmount)}',
@@ -334,21 +559,28 @@ class _ItemCardState extends ConsumerState<_ItemCard> {
               ),
               if (_deliveryStatus != 'not_delivered') ...[
                 const SizedBox(height: 10),
-                DropdownButtonFormField<String>(
-                  value: _paymentMode,
-                  decoration: const InputDecoration(labelText: 'Payment Mode'),
-                  items: const [
-                    DropdownMenuItem(value: 'cash', child: Text('Cash')),
-                    DropdownMenuItem(value: 'online', child: Text('Online')),
-                    DropdownMenuItem(value: 'credit', child: Text('Credit (goes to Udhaar)')),
-                  ],
-                  onChanged: (v) => setState(() => _paymentMode = v ?? _paymentMode),
+                TextField(
+                  controller: _cashController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(labelText: 'Cash Amount'),
                 ),
                 const SizedBox(height: 10),
                 TextField(
-                  controller: _amountCollectedController,
+                  controller: _onlineController,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(labelText: 'Amount Collected'),
+                  decoration: const InputDecoration(labelText: 'Online / UPI Amount'),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _chequeController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(labelText: 'Cheque Amount'),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _creditAmountController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(labelText: 'Credit / Udhaar Amount'),
                 ),
               ],
               const SizedBox(height: 10),

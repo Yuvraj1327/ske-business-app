@@ -13,6 +13,7 @@ from app.schemas.settlement import (
     SettlementSheetCreateRequest,
     SettlementSheetDetailResponse,
     SettlementSheetListResponse,
+    SettlementSheetUpdateRequest,
     SettlementStatusUpdateRequest,
 )
 from app.services.settlement_service import SettlementService
@@ -63,6 +64,21 @@ async def get_settlement_sheet(
 ) -> SettlementSheetDetailResponse:
     service = SettlementService(db)
     return await service.get_sheet(sheet_id, current_user)
+
+
+@router.patch("/{sheet_id}", response_model=SettlementSheetDetailResponse)
+async def update_settlement_sheet(
+    sheet_id: uuid.UUID,
+    payload: SettlementSheetUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: CurrentUser = Depends(require_permission("settlements.manage")),
+) -> SettlementSheetDetailResponse:
+    """Admin-only: partial update to a sheet's header/general fields
+    (date, agent, salesman, pick sheet no./value, returns, damage, discount,
+    cash/online/cheque, credit bills, old short, notes). Locked once the
+    sheet is 'completed'."""
+    service = SettlementService(db)
+    return await service.update_sheet(sheet_id, payload, current_user)
 
 
 @router.patch("/{sheet_id}/status", response_model=SettlementSheetDetailResponse)

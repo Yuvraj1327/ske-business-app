@@ -7,7 +7,6 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from app.schemas.common import money_str
 
 DELIVERY_STATUSES = {"pending", "delivered", "not_delivered"}
-PAYMENT_MODES = {"cash", "online", "credit", "none"}
 SHEET_STATUSES = {"draft", "in_progress", "completed"}
 
 
@@ -22,7 +21,39 @@ class SettlementSheetCreateRequest(BaseModel):
     delivery_agent_id: uuid.UUID
     salesman_id: uuid.UUID
     notes: str | None = None
+    # General / reconciliation fields — manually entered by Admin.
+    pick_sheet_no: str | None = None
+    pick_sheet_value: Decimal = Field(default=Decimal("0"), ge=0)
+    returns_goods: Decimal = Field(default=Decimal("0"), ge=0)
+    damage_return: Decimal = Field(default=Decimal("0"), ge=0)
+    discount: Decimal = Field(default=Decimal("0"), ge=0)
+    cash_amount: Decimal = Field(default=Decimal("0"), ge=0)
+    online_amount: Decimal = Field(default=Decimal("0"), ge=0)
+    cheque_amount: Decimal = Field(default=Decimal("0"), ge=0)
+    credit_bills: Decimal = Field(default=Decimal("0"), ge=0)
+    old_short: Decimal = Field(default=Decimal("0"), ge=0)
     items: list[SettlementItemCreateRequest] = Field(min_length=1)
+
+
+class SettlementSheetUpdateRequest(BaseModel):
+    """Admin-only partial update to a sheet's header/general fields. Every
+    field is optional; only the ones provided are changed. Rejected once the
+    sheet is 'completed' (see SettlementService.update_sheet)."""
+
+    sheet_date: date | None = None
+    delivery_agent_id: uuid.UUID | None = None
+    salesman_id: uuid.UUID | None = None
+    notes: str | None = None
+    pick_sheet_no: str | None = None
+    pick_sheet_value: Decimal | None = Field(default=None, ge=0)
+    returns_goods: Decimal | None = Field(default=None, ge=0)
+    damage_return: Decimal | None = Field(default=None, ge=0)
+    discount: Decimal | None = Field(default=None, ge=0)
+    cash_amount: Decimal | None = Field(default=None, ge=0)
+    online_amount: Decimal | None = Field(default=None, ge=0)
+    cheque_amount: Decimal | None = Field(default=None, ge=0)
+    credit_bills: Decimal | None = Field(default=None, ge=0)
+    old_short: Decimal | None = Field(default=None, ge=0)
 
 
 class SettlementStatusUpdateRequest(BaseModel):
@@ -37,11 +68,16 @@ class SettlementStatusUpdateRequest(BaseModel):
 
 
 class SettlementItemDeliveryUpdateRequest(BaseModel):
-    """The Delivery Agent's (or Admin's) update to one row's delivery half."""
+    """The Delivery Agent's (or Admin's) update to one row's delivery half.
+    Amounts are split by mode since one delivery can be paid across several;
+    `credit_amount` is the portion left as credit/udhaar for the Salesman to
+    later collect against."""
 
     delivery_status: str
-    amount_collected: Decimal = Field(default=Decimal("0"), ge=0)
-    payment_mode: str = "none"
+    cash_amount: Decimal = Field(default=Decimal("0"), ge=0)
+    online_amount: Decimal = Field(default=Decimal("0"), ge=0)
+    cheque_amount: Decimal = Field(default=Decimal("0"), ge=0)
+    credit_amount: Decimal = Field(default=Decimal("0"), ge=0)
     agent_notes: str | None = None
 
     @field_validator("delivery_status")
@@ -49,13 +85,6 @@ class SettlementItemDeliveryUpdateRequest(BaseModel):
     def validate_delivery_status(cls, v: str) -> str:
         if v not in DELIVERY_STATUSES:
             raise ValueError(f"delivery_status must be one of: {', '.join(sorted(DELIVERY_STATUSES))}")
-        return v
-
-    @field_validator("payment_mode")
-    @classmethod
-    def validate_payment_mode(cls, v: str) -> str:
-        if v not in PAYMENT_MODES:
-            raise ValueError(f"payment_mode must be one of: {', '.join(sorted(PAYMENT_MODES))}")
         return v
 
 
@@ -78,8 +107,10 @@ class SettlementItemResponse(BaseModel):
     customer_name: str
     invoice_amount: str
     delivery_status: str
-    amount_collected: str
-    payment_mode: str
+    cash_amount: str
+    online_amount: str
+    cheque_amount: str
+    total_collected: str
     agent_notes: str | None
     credit_amount: str
     credit_collected: str
@@ -97,8 +128,10 @@ class SettlementItemResponse(BaseModel):
             customer_name=item.customer_name,
             invoice_amount=money_str(item.invoice_amount),
             delivery_status=item.delivery_status,
-            amount_collected=money_str(item.amount_collected),
-            payment_mode=item.payment_mode,
+            cash_amount=money_str(item.cash_amount),
+            online_amount=money_str(item.online_amount),
+            cheque_amount=money_str(item.cheque_amount),
+            total_collected=money_str(item.cash_amount + item.online_amount + item.cheque_amount),
             agent_notes=item.agent_notes,
             credit_amount=money_str(item.credit_amount),
             credit_collected=money_str(item.credit_collected),
@@ -130,6 +163,17 @@ class SettlementSheetResponse(BaseModel):
     salesman_name: str
     status: str
     notes: str | None
+    # General / reconciliation fields — manually entered by Admin.
+    pick_sheet_no: str | None
+    pick_sheet_value: str
+    returns_goods: str
+    damage_return: str
+    discount: str
+    cash_amount: str
+    online_amount: str
+    cheque_amount: str
+    credit_bills: str
+    old_short: str
     summary: SettlementSheetSummary
     created_at: datetime
     updated_at: datetime

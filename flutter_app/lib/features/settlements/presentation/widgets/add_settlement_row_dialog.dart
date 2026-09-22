@@ -181,10 +181,10 @@ class _AddSettlementRowDialogState extends ConsumerState<_AddSettlementRowDialog
                       ),
                       const SizedBox(height: 14),
                       AppTextField(
-                        label: 'Credit / Udhaar Amount (optional)',
+                        label: 'Estimated Credit / Udhaar (optional)',
                         controller: _creditAmountController,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        hintText: 'Leave as 0 if this delivery has no credit portion',
+                        hintText: 'The Delivery Agent will set the final amount after delivery',
                         validator: _validateNonNegativeAmount,
                       ),
                     ],

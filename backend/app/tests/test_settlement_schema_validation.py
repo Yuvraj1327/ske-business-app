@@ -1,6 +1,7 @@
 """Pydantic schema validation for Settlement Sheets — runs entirely
 in-memory, no DB needed. Mirrors the style of test_schema_validation.py."""
 import uuid
+from decimal import Decimal
 
 import pytest
 from pydantic import ValidationError as PydanticValidationError
@@ -9,6 +10,7 @@ from app.schemas.settlement import (
     SettlementItemCreditUpdateRequest,
     SettlementItemDeliveryUpdateRequest,
     SettlementSheetCreateRequest,
+    SettlementSheetUpdateRequest,
     SettlementStatusUpdateRequest,
 )
 
@@ -48,13 +50,27 @@ def test_delivery_status_must_be_valid():
     with pytest.raises(PydanticValidationError):
         SettlementItemDeliveryUpdateRequest(delivery_status="delivered_maybe")
 
-    valid = SettlementItemDeliveryUpdateRequest(delivery_status="delivered", payment_mode="cash", amount_collected="200")
+    valid = SettlementItemDeliveryUpdateRequest(delivery_status="delivered", cash_amount="200")
     assert valid.delivery_status == "delivered"
 
 
-def test_payment_mode_must_be_valid():
+def test_delivery_amounts_cannot_be_negative():
     with pytest.raises(PydanticValidationError):
-        SettlementItemDeliveryUpdateRequest(delivery_status="delivered", payment_mode="bitcoin")
+        SettlementItemDeliveryUpdateRequest(delivery_status="delivered", cash_amount="-5")
+    with pytest.raises(PydanticValidationError):
+        SettlementItemDeliveryUpdateRequest(delivery_status="delivered", online_amount="-5")
+    with pytest.raises(PydanticValidationError):
+        SettlementItemDeliveryUpdateRequest(delivery_status="delivered", cheque_amount="-5")
+    with pytest.raises(PydanticValidationError):
+        SettlementItemDeliveryUpdateRequest(delivery_status="delivered", credit_amount="-5")
+
+
+def test_settlement_sheet_update_request_accepts_partial_payload():
+    payload = SettlementSheetUpdateRequest(pick_sheet_no="PS-100", cash_amount="500.00")
+    assert payload.pick_sheet_no == "PS-100"
+    assert payload.cash_amount == Decimal("500.00")
+    assert payload.sheet_date is None
+    assert payload.delivery_agent_id is None
 
 
 def test_settlement_status_must_be_valid_enum_value():

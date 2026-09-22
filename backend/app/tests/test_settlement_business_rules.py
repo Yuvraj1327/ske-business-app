@@ -8,9 +8,10 @@ from decimal import Decimal
 
 import pytest
 
-from app.core.exceptions import PermissionDeniedError
+from app.core.exceptions import BusinessRuleError, PermissionDeniedError
 from app.core.security import CurrentUser
 from app.models.settlement import SettlementSheet
+from app.schemas.settlement import SettlementSheetUpdateRequest
 from app.services.settlement_service import _ALLOWED_TRANSITIONS, SettlementService
 
 
@@ -149,3 +150,15 @@ def test_credit_collected_cannot_exceed_credit_amount():
     credit_amount = Decimal("1000.00")
     attempted_collected = Decimal("1200.00")
     assert attempted_collected > credit_amount  # this is exactly what raises BusinessRuleError in the service
+
+
+# ---------------------------------------------------------------------------
+# Header/general field updates — Admin only, locked once 'completed'.
+# Only the permission check runs before any DB access, so it's safe to
+# exercise the real async method here without a database.
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_non_admin_cannot_update_sheet_header(service):
+    agent = _make_user("delivery_agent", {"settlements.view_assigned"})
+    with pytest.raises(PermissionDeniedError):
+        await service.update_sheet(uuid.uuid4(), SettlementSheetUpdateRequest(pick_sheet_no="PS-1"), agent)

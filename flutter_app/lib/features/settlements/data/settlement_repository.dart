@@ -29,6 +29,16 @@ class SettlementRepository {
     required String deliveryAgentId,
     required String salesmanId,
     String? notes,
+    String? pickSheetNo,
+    double pickSheetValue = 0,
+    double returnsGoods = 0,
+    double damageReturn = 0,
+    double discount = 0,
+    double cashAmount = 0,
+    double onlineAmount = 0,
+    double chequeAmount = 0,
+    double creditBills = 0,
+    double oldShort = 0,
     required List<DraftSettlementRow> items,
   }) async {
     final response = await _apiClient.post<Map<String, dynamic>>(
@@ -38,6 +48,16 @@ class SettlementRepository {
         'delivery_agent_id': deliveryAgentId,
         'salesman_id': salesmanId,
         if (notes != null && notes.isNotEmpty) 'notes': notes,
+        if (pickSheetNo != null && pickSheetNo.isNotEmpty) 'pick_sheet_no': pickSheetNo,
+        'pick_sheet_value': pickSheetValue.toStringAsFixed(2),
+        'returns_goods': returnsGoods.toStringAsFixed(2),
+        'damage_return': damageReturn.toStringAsFixed(2),
+        'discount': discount.toStringAsFixed(2),
+        'cash_amount': cashAmount.toStringAsFixed(2),
+        'online_amount': onlineAmount.toStringAsFixed(2),
+        'cheque_amount': chequeAmount.toStringAsFixed(2),
+        'credit_bills': creditBills.toStringAsFixed(2),
+        'old_short': oldShort.toStringAsFixed(2),
         'items': items
             .map((row) => {
                   'customer_id': row.customerId,
@@ -45,6 +65,48 @@ class SettlementRepository {
                   'credit_amount': row.creditAmount.toStringAsFixed(2),
                 })
             .toList(),
+      },
+    );
+    return SettlementSheetDetail.fromJson(response.data!);
+  }
+
+  /// Admin-only partial update to a sheet's header/general fields. Only the
+  /// provided (non-null) fields are sent, so callers can update just one
+  /// field at a time.
+  Future<SettlementSheetDetail> updateSheet(
+    String sheetId, {
+    DateTime? sheetDate,
+    String? deliveryAgentId,
+    String? salesmanId,
+    String? notes,
+    String? pickSheetNo,
+    double? pickSheetValue,
+    double? returnsGoods,
+    double? damageReturn,
+    double? discount,
+    double? cashAmount,
+    double? onlineAmount,
+    double? chequeAmount,
+    double? creditBills,
+    double? oldShort,
+  }) async {
+    final response = await _apiClient.patch<Map<String, dynamic>>(
+      '/settlements/$sheetId',
+      data: {
+        if (sheetDate != null) 'sheet_date': _formatDate(sheetDate),
+        if (deliveryAgentId != null) 'delivery_agent_id': deliveryAgentId,
+        if (salesmanId != null) 'salesman_id': salesmanId,
+        if (notes != null) 'notes': notes,
+        if (pickSheetNo != null) 'pick_sheet_no': pickSheetNo,
+        if (pickSheetValue != null) 'pick_sheet_value': pickSheetValue.toStringAsFixed(2),
+        if (returnsGoods != null) 'returns_goods': returnsGoods.toStringAsFixed(2),
+        if (damageReturn != null) 'damage_return': damageReturn.toStringAsFixed(2),
+        if (discount != null) 'discount': discount.toStringAsFixed(2),
+        if (cashAmount != null) 'cash_amount': cashAmount.toStringAsFixed(2),
+        if (onlineAmount != null) 'online_amount': onlineAmount.toStringAsFixed(2),
+        if (chequeAmount != null) 'cheque_amount': chequeAmount.toStringAsFixed(2),
+        if (creditBills != null) 'credit_bills': creditBills.toStringAsFixed(2),
+        if (oldShort != null) 'old_short': oldShort.toStringAsFixed(2),
       },
     );
     return SettlementSheetDetail.fromJson(response.data!);
@@ -61,16 +123,20 @@ class SettlementRepository {
   Future<SettlementSheetItem> updateItemDelivery({
     required String itemId,
     required String deliveryStatus,
-    required double amountCollected,
-    required String paymentMode,
+    required double cashAmount,
+    required double onlineAmount,
+    required double chequeAmount,
+    required double creditAmount,
     String? agentNotes,
   }) async {
     final response = await _apiClient.patch<Map<String, dynamic>>(
       '/settlements/items/$itemId/delivery',
       data: {
         'delivery_status': deliveryStatus,
-        'amount_collected': amountCollected.toStringAsFixed(2),
-        'payment_mode': paymentMode,
+        'cash_amount': cashAmount.toStringAsFixed(2),
+        'online_amount': onlineAmount.toStringAsFixed(2),
+        'cheque_amount': chequeAmount.toStringAsFixed(2),
+        'credit_amount': creditAmount.toStringAsFixed(2),
         if (agentNotes != null && agentNotes.isNotEmpty) 'agent_notes': agentNotes,
       },
     );
