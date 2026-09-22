@@ -25,12 +25,23 @@ class CustomerRepository {
     return Customer.fromJson(response.data!);
   }
 
+  /// Settlement Sheet's "Customer Code" search + autofill. Throws a
+  /// [Failure] with code 'NOT_FOUND' (mapped from the backend's 404 — see
+  /// api/v1/customers.py::lookup_customer_by_code) when no customer has
+  /// this code; callers use that specifically to offer "create a new
+  /// customer with this code" rather than treating it as a generic error.
+  Future<Customer> lookupByCode(String externalCode) async {
+    final response = await _apiClient.get<Map<String, dynamic>>('/customers/lookup/$externalCode');
+    return Customer.fromJson(response.data!);
+  }
+
   Future<Customer> createCustomer({
     required String name,
     String? phone,
     String? email,
     String? address,
     String? gstNumber,
+    String? externalCode,
     String? assignedSalesmanId,
   }) async {
     final response = await _apiClient.post<Map<String, dynamic>>(
@@ -41,6 +52,7 @@ class CustomerRepository {
         if (email != null && email.isNotEmpty) 'email': email,
         if (address != null && address.isNotEmpty) 'address': address,
         if (gstNumber != null && gstNumber.isNotEmpty) 'gst_number': gstNumber,
+        if (externalCode != null && externalCode.isNotEmpty) 'external_code': externalCode,
         if (assignedSalesmanId != null) 'assigned_salesman_id': assignedSalesmanId,
       },
     );

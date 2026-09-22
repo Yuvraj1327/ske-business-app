@@ -38,4 +38,8 @@ class Permission {
 
   static const picklistsManage = 'picklists.manage';
   static const picklistsViewAssigned = 'picklists.view_assigned';
+
+  // Settlement Sheet (database/migrations/004_add_settlement_sheets.sql).
+  static const settlementsManage = 'settlements.manage';
+  static const settlementsViewAssigned = 'settlements.view_assigned';
 }

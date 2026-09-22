@@ -51,6 +51,21 @@ async def create_customer(
     return await service.create_customer(payload, current_user)
 
 
+@router.get("/lookup/{external_code}", response_model=CustomerResponse)
+async def lookup_customer_by_code(
+    external_code: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: CurrentUser = Depends(_view_permission),
+) -> CustomerResponse:
+    """Settlement Sheet's "Customer Code" search + autofill (see
+    api/v1/settlements.py). Returns 404 when no customer has this code —
+    the caller (Admin, building a settlement sheet) is expected to offer
+    "create a new customer" at that point via the existing
+    POST /customers, passing the same code."""
+    service = CustomerService(db)
+    return await service.lookup_by_external_code(external_code, current_user)
+
+
 @router.get("/{customer_id}", response_model=CustomerResponse)
 async def get_customer(
     customer_id: uuid.UUID,

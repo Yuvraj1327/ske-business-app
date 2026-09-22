@@ -4,7 +4,7 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import NotFoundError, PermissionDeniedError, ValidationError
+from app.core.exceptions import ConflictError, NotFoundError, PermissionDeniedError, ValidationError
 from app.core.security import CurrentUser
 from app.models.customer import Customer
 from app.models.payment import Payment
@@ -57,6 +57,22 @@ class CustomerService:
         customer = await self._get_scoped(customer_id, current_user)
         return CustomerResponse.from_model(customer)
 
+    async def lookup_by_external_code(self, external_code: str, current_user: CurrentUser) -> CustomerResponse:
+        """Settlement Sheet's "Customer Code search + autofill". Raises
+        NotFoundError (404) when no customer has this code, which the
+        Flutter side treats as the trigger to offer "create a new
+        customer" — same lookup-or-create shape as
+        picklist_service.find_or_create_customer, just surfaced as an API
+        the Admin drives interactively instead of an unattended import."""
+        # Uses the same visibility scoping as get_customer — a Salesman-only
+        # user (no settlements involvement) still can't fish for customers
+        # outside their assignment via this endpoint.
+        self._scope_salesman_id(current_user)
+        customer = await self.customers.get_by_external_code(external_code)
+        if customer is None:
+            raise NotFoundError(f"No customer found with code '{external_code}'.")
+        return CustomerResponse.from_model(customer)
+
     async def _get_scoped(self, customer_id: uuid.UUID, current_user: CurrentUser) -> Customer:
         customer = await self.customers.get_by_id(customer_id)
         if customer is None:
@@ -66,13 +82,25 @@ class CustomerService:
             raise NotFoundError("Customer not found")
         return customer
 
+    async def _ensure_external_code_available(
+        self, external_code: str | None, exclude_customer_id: uuid.UUID | None = None
+    ) -> None:
+        if not external_code:
+            return
+        existing = await self.customers.get_by_external_code(external_code)
+        if existing is not None and existing.id != exclude_customer_id:
+            raise ConflictError(f"Customer code '{external_code}' is already used by another customer.")
+
     async def create_customer(self, payload: CustomerCreateRequest, current_user: CurrentUser) -> CustomerResponse:
+        await self._ensure_external_code_available(payload.external_code)
+
         customer = Customer(
             name=payload.name,
             phone=payload.phone,
             email=payload.email,
             address=payload.address,
             gst_number=payload.gst_number,
+            external_code=payload.external_code,
             assigned_salesman_id=payload.assigned_salesman_id,
             created_by=current_user.id,
             is_active=True,
@@ -96,6 +124,9 @@ class CustomerService:
             customer.address = payload.address
         if payload.gst_number is not None:
             customer.gst_number = payload.gst_number
+        if payload.external_code is not None:
+            await self._ensure_external_code_available(payload.external_code, exclude_customer_id=customer.id)
+            customer.external_code = payload.external_code
         if payload.assigned_salesman_id is not None:
             customer.assigned_salesman_id = payload.assigned_salesman_id
         if payload.is_active is not None:

@@ -7,6 +7,10 @@ class Customer extends Equatable {
   final String? email;
   final String? address;
   final String? gstNumber;
+  // Settlement Sheet's "Customer Code" — the same external_code column
+  // already used by the Picklist import workflow (see
+  // database/migrations/003_add_picklist_workflow.sql).
+  final String? externalCode;
   final String? assignedSalesmanId;
   final bool isActive;
   final DateTime createdAt;
@@ -18,6 +22,7 @@ class Customer extends Equatable {
     this.email,
     this.address,
     this.gstNumber,
+    this.externalCode,
     this.assignedSalesmanId,
     required this.isActive,
     required this.createdAt,
@@ -31,6 +36,7 @@ class Customer extends Equatable {
       email: json['email'] as String?,
       address: json['address'] as String?,
       gstNumber: json['gst_number'] as String?,
+      externalCode: json['external_code'] as String?,
       assignedSalesmanId: json['assigned_salesman_id'] as String?,
       isActive: json['is_active'] as bool,
       createdAt: DateTime.parse(json['created_at'] as String),
@@ -38,7 +44,8 @@ class Customer extends Equatable {
   }
 
   @override
-  List<Object?> get props => [id, name, phone, email, address, gstNumber, assignedSalesmanId, isActive, createdAt];
+  List<Object?> get props =>
+      [id, name, phone, email, address, gstNumber, externalCode, assignedSalesmanId, isActive, createdAt];
 }
 
 class CustomerOutstanding extends Equatable {

@@ -10,6 +10,12 @@ class CustomerCreateRequest(BaseModel):
     email: str | None = Field(default=None, max_length=200)
     address: str | None = None
     gst_number: str | None = Field(default=None, max_length=30)
+    # Settlement Sheet's "Customer Code" — reuses the existing
+    # customers.external_code column (see database/migrations/
+    # 003_add_picklist_workflow.sql) rather than a new field, so a code
+    # assigned here also matches an existing picklist import for the same
+    # customer, and vice versa.
+    external_code: str | None = Field(default=None, max_length=50)
     assigned_salesman_id: uuid.UUID | None = None
 
     @field_validator("name")
@@ -27,6 +33,7 @@ class CustomerUpdateRequest(BaseModel):
     email: str | None = Field(default=None, max_length=200)
     address: str | None = None
     gst_number: str | None = Field(default=None, max_length=30)
+    external_code: str | None = Field(default=None, max_length=50)
     assigned_salesman_id: uuid.UUID | None = None
     is_active: bool | None = None
 
@@ -40,6 +47,7 @@ class CustomerResponse(BaseModel):
     email: str | None
     address: str | None
     gst_number: str | None
+    external_code: str | None = None
     assigned_salesman_id: uuid.UUID | None
     assigned_salesman_name: str | None = None
     is_active: bool
@@ -54,6 +62,7 @@ class CustomerResponse(BaseModel):
             email=customer.email,
             address=customer.address,
             gst_number=customer.gst_number,
+            external_code=customer.external_code,
             assigned_salesman_id=customer.assigned_salesman_id,
             assigned_salesman_name=None,
             is_active=customer.is_active,

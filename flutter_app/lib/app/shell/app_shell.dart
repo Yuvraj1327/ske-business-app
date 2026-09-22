@@ -60,6 +60,16 @@ const _allSidebarNavItems = [
   _NavItem(path: '/reports', label: 'Reports', icon: Icons.bar_chart_outlined, requiredPermission: Permission.reportsView),
   _NavItem(path: '/imports', label: 'Excel Import', icon: Icons.upload_file_outlined, requiredPermission: Permission.importsManage),
   _NavItem(path: '/picklists', label: 'Picklists', icon: Icons.checklist_rtl_outlined, requiredPermission: Permission.picklistsViewAssigned),
+  // Settlement Sheet — separate sidebar entry, visible to Admin, Salesman
+  // and Delivery Agent alike (all three hold settlements.view_assigned or
+  // settlements.manage); what each of them can actually do once inside is
+  // gated screen-by-screen (see SettlementDetailScreen).
+  _NavItem(
+    path: '/settlements',
+    label: 'Settlements',
+    icon: Icons.fact_check_outlined,
+    requiredPermission: Permission.settlementsViewAssigned,
+  ),
   _NavItem(path: '/users', label: 'Users', icon: Icons.people_outline, requiredPermission: Permission.usersManage),
   _NavItem(
     path: '/roles',

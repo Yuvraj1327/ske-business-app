@@ -15,6 +15,13 @@ class CustomerRepository:
         result = await self.db.execute(select(Customer).where(Customer.id == customer_id))
         return result.scalar_one_or_none()
 
+    async def get_by_external_code(self, external_code: str) -> Customer | None:
+        """Used by the Settlement Sheet "Customer Code" search + autofill —
+        same lookup picklist imports already do (see
+        picklist_service.find_or_create_customer)."""
+        result = await self.db.execute(select(Customer).where(Customer.external_code == external_code))
+        return result.scalar_one_or_none()
+
     def _base_query(
         self,
         search: str | None,

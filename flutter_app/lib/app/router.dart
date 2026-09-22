@@ -26,6 +26,9 @@ import '../features/sales/presentation/screens/sales_list_screen.dart';
 import '../features/salesmen/presentation/screens/salesman_detail_screen.dart';
 import '../features/salesmen/presentation/screens/salesmen_list_screen.dart';
 import '../features/settings/presentation/screens/settings_screen.dart';
+import '../features/settlements/presentation/screens/create_settlement_screen.dart';
+import '../features/settlements/presentation/screens/settlement_detail_screen.dart';
+import '../features/settlements/presentation/screens/settlements_list_screen.dart';
 import '../features/transactions/presentation/screens/transactions_list_screen.dart';
 import '../features/users/presentation/screens/users_list_screen.dart';
 import 'shell/app_shell.dart';
@@ -66,6 +69,7 @@ const _permissionGuardedRoutes = <String, String>{
   '/reports': Permission.reportsView,
   '/imports': Permission.importsManage,
   '/picklists': Permission.picklistsViewAssigned,
+  '/settlements': Permission.settlementsViewAssigned, // Settlement Sheet
   '/users': Permission.usersManage,
   '/roles': Permission.rolesManage,
 };
@@ -156,6 +160,18 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/picklists/:id',
             pageBuilder: (context, state) => _instant(PicklistDetailScreen(picklistId: state.pathParameters['id']!)),
+          ),
+
+          // Settlement Sheet.
+          GoRoute(path: '/settlements', pageBuilder: (context, state) => _instant(const SettlementsListScreen())),
+          GoRoute(
+            path: '/settlements/new',
+            pageBuilder: (context, state) => _instant(const CreateSettlementScreen()),
+          ),
+          GoRoute(
+            path: '/settlements/:id',
+            pageBuilder: (context, state) =>
+                _instant(SettlementDetailScreen(sheetId: state.pathParameters['id']!)),
           ),
 
           GoRoute(path: '/users', pageBuilder: (context, state) => _instant(const UsersListScreen())),
