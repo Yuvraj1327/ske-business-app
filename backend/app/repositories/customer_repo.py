@@ -22,6 +22,21 @@ class CustomerRepository:
         result = await self.db.execute(select(Customer).where(Customer.external_code == external_code))
         return result.scalar_one_or_none()
 
+    async def search_by_code_suffix(self, code: str, limit: int = 20) -> list[Customer]:
+        """Settlement Sheet's "Customer Code" search, relaxed to match on
+        just the END of the code (e.g. the last 6 digits) instead of
+        requiring the full code — a plain suffix match also satisfies a
+        full-code search, so this covers both. Ordered by name since
+        several matches sharing a short numeric suffix is the whole reason
+        this exists."""
+        result = await self.db.execute(
+            select(Customer)
+            .where(Customer.external_code.ilike(f"%{code}"))
+            .order_by(Customer.name)
+            .limit(limit)
+        )
+        return list(result.scalars().all())
+
     def _base_query(
         self,
         search: str | None,

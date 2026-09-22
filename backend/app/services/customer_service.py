@@ -73,6 +73,22 @@ class CustomerService:
             raise NotFoundError(f"No customer found with code '{external_code}'.")
         return CustomerResponse.from_model(customer)
 
+    async def search_by_code(self, code: str, current_user: CurrentUser) -> list[CustomerResponse]:
+        """Settlement Sheet's "Customer Code" search, relaxed version of
+        lookup_by_external_code — matches on just the last few digits
+        (e.g. the last 6) instead of requiring the full code, since a
+        Delivery Agent reading codes off paper may only have the tail end
+        handy. A plain suffix match also matches a full code, so this one
+        endpoint covers both. Same permission check as lookup_by_external_code
+        (not filtered further by assignment, for the same reason noted
+        there)."""
+        self._scope_salesman_id(current_user)
+        code = code.strip()
+        if len(code) < 3:
+            raise ValidationError("Enter at least 3 characters to search by code.", field="code")
+        customers = await self.customers.search_by_code_suffix(code)
+        return [CustomerResponse.from_model(c) for c in customers]
+
     async def _get_scoped(self, customer_id: uuid.UUID, current_user: CurrentUser) -> Customer:
         customer = await self.customers.get_by_id(customer_id)
         if customer is None:

@@ -57,20 +57,23 @@ final settlementDetailProvider = FutureProvider.autoDispose.family<SettlementShe
   return ref.watch(settlementRepositoryProvider).getSheet(id);
 });
 
-/// Customer Code search + autofill, used while building a new settlement
-/// sheet. Returns null (no error) when nothing has been searched yet;
-/// throws a [Failure] with code 'NOT_FOUND' when the code doesn't match any
-/// customer, which the "add row" dialog uses to offer "create a new
-/// customer with this code" instead of showing a generic error banner.
-class CustomerCodeLookupController extends AsyncNotifier<Customer?> {
+/// Customer Code search + autofill, used while building/updating a
+/// settlement sheet. Matches on just the END of the code (e.g. the last 6
+/// digits), which also covers a full-code search since that's just the
+/// extreme case of a suffix match. Returns an empty list (no error) when
+/// nothing has been searched yet, or when a search genuinely finds
+/// nothing — the "add row" dialog treats an empty result (after a search
+/// was actually run) as the trigger to offer "create a new customer with
+/// this code" instead of showing a generic error banner.
+class CustomerCodeSearchController extends AsyncNotifier<List<Customer>> {
   @override
-  Future<Customer?> build() async => null;
+  Future<List<Customer>> build() async => [];
 
-  Future<void> lookup(String code) async {
+  Future<void> search(String code) async {
     state = const AsyncLoading();
     try {
-      final customer = await ref.read(customerRepositoryProvider).lookupByCode(code);
-      state = AsyncData(customer);
+      final results = await ref.read(customerRepositoryProvider).searchByCode(code);
+      state = AsyncData(results);
     } on Failure catch (f) {
       state = AsyncError(f, StackTrace.current);
     } catch (e) {
@@ -78,11 +81,11 @@ class CustomerCodeLookupController extends AsyncNotifier<Customer?> {
     }
   }
 
-  void clear() => state = const AsyncData(null);
+  void clear() => state = const AsyncData([]);
 }
 
-final customerCodeLookupControllerProvider =
-    AsyncNotifierProvider<CustomerCodeLookupController, Customer?>(CustomerCodeLookupController.new);
+final customerCodeSearchControllerProvider =
+    AsyncNotifierProvider<CustomerCodeSearchController, List<Customer>>(CustomerCodeSearchController.new);
 
 /// Handles create-sheet, status transitions and both per-row update
 /// mutations, refreshing whichever list/detail provider is affected.

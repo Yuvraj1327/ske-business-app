@@ -66,6 +66,20 @@ async def lookup_customer_by_code(
     return await service.lookup_by_external_code(external_code, current_user)
 
 
+@router.get("/search-by-code", response_model=list[CustomerResponse])
+async def search_customers_by_code(
+    code: str = Query(min_length=3),
+    db: AsyncSession = Depends(get_db),
+    current_user: CurrentUser = Depends(_view_permission),
+) -> list[CustomerResponse]:
+    """Settlement Sheet's "Customer Code" search, relaxed to match on just
+    the end of the code (e.g. the last 6 digits) — see
+    CustomerService.search_by_code. Registered before /{customer_id} so it
+    isn't shadowed."""
+    service = CustomerService(db)
+    return await service.search_by_code(code, current_user)
+
+
 @router.get("/{customer_id}", response_model=CustomerResponse)
 async def get_customer(
     customer_id: uuid.UUID,

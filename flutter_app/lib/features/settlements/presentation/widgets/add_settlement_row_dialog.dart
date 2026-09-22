@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/errors/failure.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_text_field.dart';
@@ -9,22 +10,17 @@ import '../../../customers/presentation/providers/customer_providers.dart';
 import '../../domain/settlement_models.dart';
 import '../providers/settlement_providers.dart';
 
-/// One row of a Settlement Sheet being built: search an existing Customer
-/// by their Code and autofill, or — if the code isn't found — let Admin
-/// create a new customer with that code on the spot, then set the row's
-/// Invoice Amount and (optional) Credit/Udhaar Amount.
+/// One row of a Settlement Sheet being built (or added later by the
+/// Delivery Agent): search existing Customers by Code — the full code, or
+/// just the last few digits (e.g. the last 6) — and pick one from the
+/// matches, or — if nothing matches — create a new customer with that
+/// code on the spot, then set the row's Invoice Amount and (optional)
+/// Credit/Udhaar Amount.
 Future<DraftSettlementRow?> showAddSettlementRowDialog(BuildContext context) {
   return showDialog<DraftSettlementRow>(
     context: context,
     builder: (_) => const _AddSettlementRowDialog(),
   );
-}
-
-class _AddSettlementRowDialog extends ConsumerStatefulWidget {
-  const _AddSettlementRowDialog();
-
-  @override
-  ConsumerState<_AddSettlementRowDialog> createState() => _AddSettlementRowDialogState();
 }
 
 class _AddSettlementRowDialogState extends ConsumerState<_AddSettlementRowDialog> {
@@ -36,6 +32,7 @@ class _AddSettlementRowDialogState extends ConsumerState<_AddSettlementRowDialog
   final _amountsFormKey = GlobalKey<FormState>();
 
   Customer? _resolvedCustomer;
+  bool _hasSearched = false;
   bool _showCreateNewCustomer = false;
   bool _isCreatingCustomer = false;
 
@@ -52,20 +49,40 @@ class _AddSettlementRowDialogState extends ConsumerState<_AddSettlementRowDialog
   Future<void> _search() async {
     final code = _codeController.text.trim();
     if (code.isEmpty) return;
+    if (code.length < 3) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter at least 3 characters to search.')),
+      );
+      return;
+    }
     setState(() {
       _resolvedCustomer = null;
+      _hasSearched = true;
       _showCreateNewCustomer = false;
     });
-    await ref.read(customerCodeLookupControllerProvider.notifier).lookup(code);
-    final result = ref.read(customerCodeLookupControllerProvider);
-    result.whenOrNull(
-      data: (customer) => setState(() => _resolvedCustomer = customer),
+    await ref.read(customerCodeSearchControllerProvider.notifier).search(code);
+    if (!mounted) return;
+    final state = ref.read(customerCodeSearchControllerProvider);
+    state.when(
+      data: (results) {
+        // Nothing matched this code at all — offer "create a new
+        // customer" right away instead of making the user find the link.
+        if (results.isEmpty) setState(() => _showCreateNewCustomer = true);
+      },
+      loading: () {},
       error: (error, _) {
-        if (error is Failure && error.code == 'NOT_FOUND') {
-          setState(() => _showCreateNewCustomer = true);
-        }
+        final failure = error is Failure ? error : Failure.unknown(error.toString());
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(failure.message), backgroundColor: Theme.of(context).colorScheme.error));
       },
     );
+  }
+
+  void _selectCustomer(Customer customer) {
+    setState(() {
+      _resolvedCustomer = customer;
+      _showCreateNewCustomer = false;
+    });
   }
 
   Future<void> _createCustomerAndUse() async {
@@ -116,10 +133,9 @@ class _AddSettlementRowDialogState extends ConsumerState<_AddSettlementRowDialog
 
   @override
   Widget build(BuildContext context) {
-    final lookupState = ref.watch(customerCodeLookupControllerProvider);
-    final notFound = lookupState.hasError &&
-        lookupState.error is Failure &&
-        (lookupState.error as Failure).code == 'NOT_FOUND';
+    final searchState = ref.watch(customerCodeSearchControllerProvider);
+    final results = searchState.valueOrNull ?? const <Customer>[];
+    final noResults = _hasSearched && !searchState.isLoading && results.isEmpty;
 
     return AlertDialog(
       title: const Text('Add Customer Row'),
@@ -133,31 +149,64 @@ class _AddSettlementRowDialogState extends ConsumerState<_AddSettlementRowDialog
               AppTextField(
                 label: 'Customer Code',
                 controller: _codeController,
-                hintText: 'e.g. IEWG26133417',
+                hintText: 'Full code, or just the last 6 digits e.g. 103533',
                 enabled: _resolvedCustomer == null,
                 suffixIcon: _resolvedCustomer == null
                     ? IconButton(
                         icon: const Icon(Icons.search),
-                        onPressed: lookupState.isLoading ? null : _search,
+                        onPressed: searchState.isLoading ? null : _search,
                       )
                     : IconButton(
                         icon: const Icon(Icons.close),
                         tooltip: 'Search a different code',
                         onPressed: () => setState(() {
                           _resolvedCustomer = null;
+                          _hasSearched = false;
                           _showCreateNewCustomer = false;
-                          ref.read(customerCodeLookupControllerProvider.notifier).clear();
+                          ref.read(customerCodeSearchControllerProvider.notifier).clear();
                         }),
                       ),
               ),
-              if (lookupState.isLoading) const Padding(
+              if (searchState.isLoading) const Padding(
                 padding: EdgeInsets.only(top: 12),
                 child: Center(child: CircularProgressIndicator()),
               ),
-              // Both paths are offered up front — Admin doesn't have to
-              // search and hit a "not found" first to discover they can
-              // create a new customer here.
-              if (_resolvedCustomer == null)
+              if (_resolvedCustomer == null && _hasSearched && !searchState.isLoading && results.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Text(
+                  '${results.length} match${results.length == 1 ? '' : 'es'} found — select one:',
+                  style: AppTextStyles.caption,
+                ),
+                const SizedBox(height: 6),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 220),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Theme.of(context).dividerColor),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: results.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (context, i) {
+                        final c = results[i];
+                        return ListTile(
+                          dense: true,
+                          title: Text(c.name),
+                          subtitle: Text('Code: ${c.externalCode ?? '-'}'),
+                          onTap: () => _selectCustomer(c),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ],
+              // Both paths are offered up front — Admin/Delivery Agent
+              // don't have to search and hit "no matches" first to
+              // discover they can create a new customer here.
+              if (_resolvedCustomer == null) ...[
+                const SizedBox(height: 6),
                 Align(
                   alignment: Alignment.centerLeft,
                   child: TextButton.icon(
@@ -168,6 +217,7 @@ class _AddSettlementRowDialogState extends ConsumerState<_AddSettlementRowDialog
                     ),
                   ),
                 ),
+              ],
               if (_resolvedCustomer != null) ...[
                 const SizedBox(height: 14),
                 Container(
@@ -180,7 +230,11 @@ class _AddSettlementRowDialogState extends ConsumerState<_AddSettlementRowDialog
                     children: [
                       const Icon(Icons.check_circle, size: 18),
                       const SizedBox(width: 8),
-                      Expanded(child: Text(_resolvedCustomer!.name)),
+                      Expanded(
+                        child: Text(
+                          '${_resolvedCustomer!.name} · Code: ${_resolvedCustomer!.externalCode ?? '-'}',
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -209,7 +263,7 @@ class _AddSettlementRowDialogState extends ConsumerState<_AddSettlementRowDialog
                 ),
               ] else if (_showCreateNewCustomer) ...[
                 const SizedBox(height: 14),
-                if (notFound) ...[
+                if (noResults) ...[
                   Text(
                     'No customer found with this code — create one below.',
                     style: Theme.of(context).textTheme.bodyMedium,
@@ -246,4 +300,11 @@ class _AddSettlementRowDialogState extends ConsumerState<_AddSettlementRowDialog
       ],
     );
   }
+}
+
+class _AddSettlementRowDialog extends ConsumerStatefulWidget {
+  const _AddSettlementRowDialog();
+
+  @override
+  ConsumerState<_AddSettlementRowDialog> createState() => _AddSettlementRowDialogState();
 }

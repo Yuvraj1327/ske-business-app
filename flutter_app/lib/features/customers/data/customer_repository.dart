@@ -35,6 +35,19 @@ class CustomerRepository {
     return Customer.fromJson(response.data!);
   }
 
+  /// Settlement Sheet's "Customer Code" search, relaxed to match on just
+  /// the end of the code (e.g. the last 6 digits) instead of requiring the
+  /// full code — see api/v1/customers.py::search_customers_by_code. A full
+  /// code still matches (it's just the extreme case of a suffix match), so
+  /// this covers both.
+  Future<List<Customer>> searchByCode(String code) async {
+    final response = await _apiClient.get<List<dynamic>>(
+      '/customers/search-by-code',
+      queryParameters: {'code': code},
+    );
+    return response.data!.map((e) => Customer.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
   Future<Customer> createCustomer({
     required String name,
     String? phone,
