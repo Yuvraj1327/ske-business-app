@@ -24,14 +24,14 @@ class SettlementSheetCreateRequest(BaseModel):
     # General / reconciliation fields — manually entered by Admin.
     pick_sheet_no: str | None = None
     pick_sheet_value: Decimal = Field(default=Decimal("0"), ge=0)
-    returns_goods: Decimal = Field(default=Decimal("0"), ge=0)
-    damage_return: Decimal = Field(default=Decimal("0"), ge=0)
-    discount: Decimal = Field(default=Decimal("0"), ge=0)
+    returns_amount: Decimal = Field(default=Decimal("0"), ge=0)
+    damage_return_amount: Decimal = Field(default=Decimal("0"), ge=0)
+    discount_amount: Decimal = Field(default=Decimal("0"), ge=0)
     cash_amount: Decimal = Field(default=Decimal("0"), ge=0)
     online_amount: Decimal = Field(default=Decimal("0"), ge=0)
     cheque_amount: Decimal = Field(default=Decimal("0"), ge=0)
-    credit_bills: Decimal = Field(default=Decimal("0"), ge=0)
-    old_short: Decimal = Field(default=Decimal("0"), ge=0)
+    credit_bills_amount: Decimal = Field(default=Decimal("0"), ge=0)
+    old_short_amount: Decimal = Field(default=Decimal("0"), ge=0)
     items: list[SettlementItemCreateRequest] = Field(min_length=1)
 
 
@@ -46,14 +46,14 @@ class SettlementSheetUpdateRequest(BaseModel):
     notes: str | None = None
     pick_sheet_no: str | None = None
     pick_sheet_value: Decimal | None = Field(default=None, ge=0)
-    returns_goods: Decimal | None = Field(default=None, ge=0)
-    damage_return: Decimal | None = Field(default=None, ge=0)
-    discount: Decimal | None = Field(default=None, ge=0)
+    returns_amount: Decimal | None = Field(default=None, ge=0)
+    damage_return_amount: Decimal | None = Field(default=None, ge=0)
+    discount_amount: Decimal | None = Field(default=None, ge=0)
     cash_amount: Decimal | None = Field(default=None, ge=0)
     online_amount: Decimal | None = Field(default=None, ge=0)
     cheque_amount: Decimal | None = Field(default=None, ge=0)
-    credit_bills: Decimal | None = Field(default=None, ge=0)
-    old_short: Decimal | None = Field(default=None, ge=0)
+    credit_bills_amount: Decimal | None = Field(default=None, ge=0)
+    old_short_amount: Decimal | None = Field(default=None, ge=0)
 
 
 class SettlementStatusUpdateRequest(BaseModel):
@@ -166,14 +166,14 @@ class SettlementSheetResponse(BaseModel):
     # General / reconciliation fields — manually entered by Admin.
     pick_sheet_no: str | None
     pick_sheet_value: str
-    returns_goods: str
-    damage_return: str
-    discount: str
+    returns_amount: str
+    damage_return_amount: str
+    discount_amount: str
     cash_amount: str
     online_amount: str
     cheque_amount: str
-    credit_bills: str
-    old_short: str
+    credit_bills_amount: str
+    old_short_amount: str
     summary: SettlementSheetSummary
     created_at: datetime
     updated_at: datetime

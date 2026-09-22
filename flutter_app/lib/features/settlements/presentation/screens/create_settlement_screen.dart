@@ -31,14 +31,14 @@ class _CreateSettlementScreenState extends ConsumerState<CreateSettlementScreen>
   final _notesController = TextEditingController();
   final _pickSheetNoController = TextEditingController();
   final _pickSheetValueController = TextEditingController(text: '0');
-  final _returnsGoodsController = TextEditingController(text: '0');
-  final _damageReturnController = TextEditingController(text: '0');
-  final _discountController = TextEditingController(text: '0');
+  final _returnsAmountController = TextEditingController(text: '0');
+  final _damageReturnAmountController = TextEditingController(text: '0');
+  final _discountAmountController = TextEditingController(text: '0');
   final _cashController = TextEditingController(text: '0');
   final _onlineController = TextEditingController(text: '0');
   final _chequeController = TextEditingController(text: '0');
-  final _creditBillsController = TextEditingController(text: '0');
-  final _oldShortController = TextEditingController(text: '0');
+  final _creditBillsAmountController = TextEditingController(text: '0');
+  final _oldShortAmountController = TextEditingController(text: '0');
   final List<DraftSettlementRow> _rows = [];
 
   @override
@@ -46,14 +46,14 @@ class _CreateSettlementScreenState extends ConsumerState<CreateSettlementScreen>
     _notesController.dispose();
     _pickSheetNoController.dispose();
     _pickSheetValueController.dispose();
-    _returnsGoodsController.dispose();
-    _damageReturnController.dispose();
-    _discountController.dispose();
+    _returnsAmountController.dispose();
+    _damageReturnAmountController.dispose();
+    _discountAmountController.dispose();
     _cashController.dispose();
     _onlineController.dispose();
     _chequeController.dispose();
-    _creditBillsController.dispose();
-    _oldShortController.dispose();
+    _creditBillsAmountController.dispose();
+    _oldShortAmountController.dispose();
     super.dispose();
   }
 
@@ -95,14 +95,14 @@ class _CreateSettlementScreenState extends ConsumerState<CreateSettlementScreen>
           notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
           pickSheetNo: _pickSheetNoController.text.trim().isEmpty ? null : _pickSheetNoController.text.trim(),
           pickSheetValue: _num(_pickSheetValueController),
-          returnsGoods: _num(_returnsGoodsController),
-          damageReturn: _num(_damageReturnController),
-          discount: _num(_discountController),
+          returnsAmount: _num(_returnsAmountController),
+          damageReturnAmount: _num(_damageReturnAmountController),
+          discountAmount: _num(_discountAmountController),
           cashAmount: _num(_cashController),
           onlineAmount: _num(_onlineController),
           chequeAmount: _num(_chequeController),
-          creditBills: _num(_creditBillsController),
-          oldShort: _num(_oldShortController),
+          creditBillsAmount: _num(_creditBillsAmountController),
+          oldShortAmount: _num(_oldShortAmountController),
           items: _rows,
         );
 
@@ -195,19 +195,19 @@ class _CreateSettlementScreenState extends ConsumerState<CreateSettlementScreen>
                           const SizedBox(height: 14),
                           AppTextField(
                             label: 'Returns Goods',
-                            controller: _returnsGoodsController,
+                            controller: _returnsAmountController,
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
                           ),
                           const SizedBox(height: 14),
                           AppTextField(
                             label: 'Damage Return',
-                            controller: _damageReturnController,
+                            controller: _damageReturnAmountController,
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
                           ),
                           const SizedBox(height: 14),
                           AppTextField(
                             label: 'Discount',
-                            controller: _discountController,
+                            controller: _discountAmountController,
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
                           ),
                           const SizedBox(height: 14),
@@ -231,13 +231,13 @@ class _CreateSettlementScreenState extends ConsumerState<CreateSettlementScreen>
                           const SizedBox(height: 14),
                           AppTextField(
                             label: 'Credit Bills',
-                            controller: _creditBillsController,
+                            controller: _creditBillsAmountController,
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
                           ),
                           const SizedBox(height: 14),
                           AppTextField(
                             label: 'Old Short',
-                            controller: _oldShortController,
+                            controller: _oldShortAmountController,
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
                           ),
                         ],

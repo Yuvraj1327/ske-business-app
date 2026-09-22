@@ -119,36 +119,36 @@ class _HeaderState extends ConsumerState<_Header> {
       TextEditingController(text: widget.sheet.pickSheetNo ?? '');
   late final TextEditingController _pickSheetValueController =
       TextEditingController(text: widget.sheet.pickSheetValue.toStringAsFixed(2));
-  late final TextEditingController _returnsGoodsController =
-      TextEditingController(text: widget.sheet.returnsGoods.toStringAsFixed(2));
-  late final TextEditingController _damageReturnController =
-      TextEditingController(text: widget.sheet.damageReturn.toStringAsFixed(2));
-  late final TextEditingController _discountController =
-      TextEditingController(text: widget.sheet.discount.toStringAsFixed(2));
+  late final TextEditingController _returnsAmountController =
+      TextEditingController(text: widget.sheet.returnsAmount.toStringAsFixed(2));
+  late final TextEditingController _damageReturnAmountController =
+      TextEditingController(text: widget.sheet.damageReturnAmount.toStringAsFixed(2));
+  late final TextEditingController _discountAmountController =
+      TextEditingController(text: widget.sheet.discountAmount.toStringAsFixed(2));
   late final TextEditingController _cashController =
       TextEditingController(text: widget.sheet.cashAmount.toStringAsFixed(2));
   late final TextEditingController _onlineController =
       TextEditingController(text: widget.sheet.onlineAmount.toStringAsFixed(2));
   late final TextEditingController _chequeController =
       TextEditingController(text: widget.sheet.chequeAmount.toStringAsFixed(2));
-  late final TextEditingController _creditBillsController =
-      TextEditingController(text: widget.sheet.creditBills.toStringAsFixed(2));
-  late final TextEditingController _oldShortController =
-      TextEditingController(text: widget.sheet.oldShort.toStringAsFixed(2));
+  late final TextEditingController _creditBillsAmountController =
+      TextEditingController(text: widget.sheet.creditBillsAmount.toStringAsFixed(2));
+  late final TextEditingController _oldShortAmountController =
+      TextEditingController(text: widget.sheet.oldShortAmount.toStringAsFixed(2));
 
   @override
   void dispose() {
     _notesController.dispose();
     _pickSheetNoController.dispose();
     _pickSheetValueController.dispose();
-    _returnsGoodsController.dispose();
-    _damageReturnController.dispose();
-    _discountController.dispose();
+    _returnsAmountController.dispose();
+    _damageReturnAmountController.dispose();
+    _discountAmountController.dispose();
     _cashController.dispose();
     _onlineController.dispose();
     _chequeController.dispose();
-    _creditBillsController.dispose();
-    _oldShortController.dispose();
+    _creditBillsAmountController.dispose();
+    _oldShortAmountController.dispose();
     super.dispose();
   }
 
@@ -178,14 +178,14 @@ class _HeaderState extends ConsumerState<_Header> {
           notes: _notesController.text.trim(),
           pickSheetNo: _pickSheetNoController.text.trim(),
           pickSheetValue: _num(_pickSheetValueController),
-          returnsGoods: _num(_returnsGoodsController),
-          damageReturn: _num(_damageReturnController),
-          discount: _num(_discountController),
+          returnsAmount: _num(_returnsAmountController),
+          damageReturnAmount: _num(_damageReturnAmountController),
+          discountAmount: _num(_discountAmountController),
           cashAmount: _num(_cashController),
           onlineAmount: _num(_onlineController),
           chequeAmount: _num(_chequeController),
-          creditBills: _num(_creditBillsController),
-          oldShort: _num(_oldShortController),
+          creditBillsAmount: _num(_creditBillsAmountController),
+          oldShortAmount: _num(_oldShortAmountController),
         );
     if (!mounted) return;
     if (success) {
@@ -263,14 +263,14 @@ class _HeaderState extends ConsumerState<_Header> {
                 children: [
                   _StatLabel(label: 'Pick Sheet No.', value: sheet.pickSheetNo?.isNotEmpty == true ? sheet.pickSheetNo! : '-'),
                   _StatLabel(label: 'Pick Sheet Value', value: Formatters.currency(sheet.pickSheetValue)),
-                  _StatLabel(label: 'Returns Goods', value: Formatters.currency(sheet.returnsGoods)),
-                  _StatLabel(label: 'Damage Return', value: Formatters.currency(sheet.damageReturn)),
-                  _StatLabel(label: 'Discount', value: Formatters.currency(sheet.discount)),
+                  _StatLabel(label: 'Returns Goods', value: Formatters.currency(sheet.returnsAmount)),
+                  _StatLabel(label: 'Damage Return', value: Formatters.currency(sheet.damageReturnAmount)),
+                  _StatLabel(label: 'Discount', value: Formatters.currency(sheet.discountAmount)),
                   _StatLabel(label: 'Cash', value: Formatters.currency(sheet.cashAmount)),
                   _StatLabel(label: 'Online / Bank / UPI', value: Formatters.currency(sheet.onlineAmount)),
                   _StatLabel(label: 'Cheque', value: Formatters.currency(sheet.chequeAmount)),
-                  _StatLabel(label: 'Credit Bills', value: Formatters.currency(sheet.creditBills)),
-                  _StatLabel(label: 'Old Short', value: Formatters.currency(sheet.oldShort)),
+                  _StatLabel(label: 'Credit Bills', value: Formatters.currency(sheet.creditBillsAmount)),
+                  _StatLabel(label: 'Old Short', value: Formatters.currency(sheet.oldShortAmount)),
                 ],
               )
             else ...[
@@ -284,19 +284,19 @@ class _HeaderState extends ConsumerState<_Header> {
               const SizedBox(height: 12),
               AppTextField(
                 label: 'Returns Goods',
-                controller: _returnsGoodsController,
+                controller: _returnsAmountController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
               ),
               const SizedBox(height: 12),
               AppTextField(
                 label: 'Damage Return',
-                controller: _damageReturnController,
+                controller: _damageReturnAmountController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
               ),
               const SizedBox(height: 12),
               AppTextField(
                 label: 'Discount',
-                controller: _discountController,
+                controller: _discountAmountController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
               ),
               const SizedBox(height: 12),
@@ -320,13 +320,13 @@ class _HeaderState extends ConsumerState<_Header> {
               const SizedBox(height: 12),
               AppTextField(
                 label: 'Credit Bills',
-                controller: _creditBillsController,
+                controller: _creditBillsAmountController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
               ),
               const SizedBox(height: 12),
               AppTextField(
                 label: 'Old Short',
-                controller: _oldShortController,
+                controller: _oldShortAmountController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
               ),
               const SizedBox(height: 12),

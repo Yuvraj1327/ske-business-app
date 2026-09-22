@@ -49,14 +49,14 @@ class SettlementSheet extends Equatable {
   // General / reconciliation fields — manually entered by Admin.
   final String? pickSheetNo;
   final double pickSheetValue;
-  final double returnsGoods;
-  final double damageReturn;
-  final double discount;
+  final double returnsAmount;
+  final double damageReturnAmount;
+  final double discountAmount;
   final double cashAmount;
   final double onlineAmount;
   final double chequeAmount;
-  final double creditBills;
-  final double oldShort;
+  final double creditBillsAmount;
+  final double oldShortAmount;
   final SettlementSheetSummary summary;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -73,14 +73,14 @@ class SettlementSheet extends Equatable {
     this.notes,
     this.pickSheetNo,
     required this.pickSheetValue,
-    required this.returnsGoods,
-    required this.damageReturn,
-    required this.discount,
+    required this.returnsAmount,
+    required this.damageReturnAmount,
+    required this.discountAmount,
     required this.cashAmount,
     required this.onlineAmount,
     required this.chequeAmount,
-    required this.creditBills,
-    required this.oldShort,
+    required this.creditBillsAmount,
+    required this.oldShortAmount,
     required this.summary,
     required this.createdAt,
     required this.updatedAt,
@@ -99,14 +99,14 @@ class SettlementSheet extends Equatable {
       notes: json['notes'] as String?,
       pickSheetNo: json['pick_sheet_no'] as String?,
       pickSheetValue: double.parse(json['pick_sheet_value'] as String),
-      returnsGoods: double.parse(json['returns_goods'] as String),
-      damageReturn: double.parse(json['damage_return'] as String),
-      discount: double.parse(json['discount'] as String),
+      returnsAmount: double.parse(json['returns_amount'] as String),
+      damageReturnAmount: double.parse(json['damage_return_amount'] as String),
+      discountAmount: double.parse(json['discount_amount'] as String),
       cashAmount: double.parse(json['cash_amount'] as String),
       onlineAmount: double.parse(json['online_amount'] as String),
       chequeAmount: double.parse(json['cheque_amount'] as String),
-      creditBills: double.parse(json['credit_bills'] as String),
-      oldShort: double.parse(json['old_short'] as String),
+      creditBillsAmount: double.parse(json['credit_bills_amount'] as String),
+      oldShortAmount: double.parse(json['old_short_amount'] as String),
       summary: SettlementSheetSummary.fromJson(json['summary'] as Map<String, dynamic>),
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
@@ -126,14 +126,14 @@ class SettlementSheet extends Equatable {
         notes,
         pickSheetNo,
         pickSheetValue,
-        returnsGoods,
-        damageReturn,
-        discount,
+        returnsAmount,
+        damageReturnAmount,
+        discountAmount,
         cashAmount,
         onlineAmount,
         chequeAmount,
-        creditBills,
-        oldShort,
+        creditBillsAmount,
+        oldShortAmount,
         summary,
         createdAt,
         updatedAt,
@@ -238,14 +238,14 @@ class SettlementSheetDetail extends SettlementSheet {
     super.notes,
     super.pickSheetNo,
     required super.pickSheetValue,
-    required super.returnsGoods,
-    required super.damageReturn,
-    required super.discount,
+    required super.returnsAmount,
+    required super.damageReturnAmount,
+    required super.discountAmount,
     required super.cashAmount,
     required super.onlineAmount,
     required super.chequeAmount,
-    required super.creditBills,
-    required super.oldShort,
+    required super.creditBillsAmount,
+    required super.oldShortAmount,
     required super.summary,
     required super.createdAt,
     required super.updatedAt,
@@ -266,14 +266,14 @@ class SettlementSheetDetail extends SettlementSheet {
       notes: base.notes,
       pickSheetNo: base.pickSheetNo,
       pickSheetValue: base.pickSheetValue,
-      returnsGoods: base.returnsGoods,
-      damageReturn: base.damageReturn,
-      discount: base.discount,
+      returnsAmount: base.returnsAmount,
+      damageReturnAmount: base.damageReturnAmount,
+      discountAmount: base.discountAmount,
       cashAmount: base.cashAmount,
       onlineAmount: base.onlineAmount,
       chequeAmount: base.chequeAmount,
-      creditBills: base.creditBills,
-      oldShort: base.oldShort,
+      creditBillsAmount: base.creditBillsAmount,
+      oldShortAmount: base.oldShortAmount,
       summary: base.summary,
       createdAt: base.createdAt,
       updatedAt: base.updatedAt,

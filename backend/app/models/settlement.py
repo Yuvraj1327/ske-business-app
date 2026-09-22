@@ -29,17 +29,19 @@ class SettlementSheet(Base):
 
     # General / reconciliation fields — manually entered by Admin, independent
     # of whatever the Delivery Agent/Salesman later record per customer row.
-    # See database/migrations/005_settlement_sheet_fields.sql.
+    # See database/migrations/005_settlement_sheet_fields.sql and 006 (which
+    # aligned these five on the "_amount" suffix already used by the other
+    # three, to match the deployed schema).
     pick_sheet_no: Mapped[str | None] = mapped_column(String, nullable=True)
     pick_sheet_value: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
-    returns_goods: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
-    damage_return: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
-    discount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
+    returns_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
+    damage_return_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
+    discount_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
     cash_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
     online_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
     cheque_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
-    credit_bills: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
-    old_short: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
+    credit_bills_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
+    old_short_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
 
     created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
