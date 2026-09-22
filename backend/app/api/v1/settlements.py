@@ -7,9 +7,12 @@ from app.core.permissions import require_permission
 from app.core.security import CurrentUser, get_current_user
 from app.db.session import get_db
 from app.schemas.settlement import (
+    SettlementAdminSummaryUpdateRequest,
+    SettlementAgentSummaryUpdateRequest,
     SettlementItemCreditUpdateRequest,
     SettlementItemDeliveryUpdateRequest,
     SettlementItemResponse,
+    SettlementSalesmanSummaryUpdateRequest,
     SettlementSheetCreateRequest,
     SettlementSheetDetailResponse,
     SettlementSheetListResponse,
@@ -76,6 +79,43 @@ async def update_settlement_sheet_status(
     SettlementService.update_status for the allowed-transition rules."""
     service = SettlementService(db)
     return await service.update_status(sheet_id, payload.status, current_user)
+
+
+@router.patch("/{sheet_id}/agent-summary", response_model=SettlementSheetDetailResponse)
+async def update_settlement_agent_summary(
+    sheet_id: uuid.UUID,
+    payload: SettlementAgentSummaryUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+) -> SettlementSheetDetailResponse:
+    """The assigned Delivery Agent's (or Admin's) route-level totals —
+    Returns / Damage Return / Discount / Cash / Online/Bank / Cheque."""
+    service = SettlementService(db)
+    return await service.update_agent_summary(sheet_id, payload, current_user)
+
+
+@router.patch("/{sheet_id}/salesman-summary", response_model=SettlementSheetDetailResponse)
+async def update_settlement_salesman_summary(
+    sheet_id: uuid.UUID,
+    payload: SettlementSalesmanSummaryUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+) -> SettlementSheetDetailResponse:
+    """The assigned Salesman's (or Admin's) sheet-level Credit/Udhaar total."""
+    service = SettlementService(db)
+    return await service.update_salesman_summary(sheet_id, payload, current_user)
+
+
+@router.patch("/{sheet_id}/admin-summary", response_model=SettlementSheetDetailResponse)
+async def update_settlement_admin_summary(
+    sheet_id: uuid.UUID,
+    payload: SettlementAdminSummaryUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: CurrentUser = Depends(require_permission("settlements.manage")),
+) -> SettlementSheetDetailResponse:
+    """Admin-only: the Old Short carry-forward figure."""
+    service = SettlementService(db)
+    return await service.update_admin_summary(sheet_id, payload, current_user)
 
 
 @router.patch("/items/{item_id}/delivery", response_model=SettlementItemResponse)

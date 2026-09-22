@@ -7,21 +7,29 @@ import '../../../../core/auth/auth_state.dart';
 import '../../../../core/errors/failure.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/app_button.dart';
+import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/widgets/error_view.dart';
 import '../../../../core/widgets/loading_view.dart';
 import '../../../../core/widgets/status_badge.dart';
 import '../../domain/settlement_models.dart';
 import '../providers/settlement_providers.dart';
 
-/// Full detail of one Settlement Sheet. What a viewer can DO here depends
-/// on who they are relative to the sheet (checked client-side only for
-/// UX — the real enforcement is server-side in SettlementService):
-///   - Admin: move the sheet Draft -> In Progress -> Completed, and (if
-///     needed) fill in either half of any row.
-///   - The assigned Delivery Agent: update each row's delivery half while
-///     the sheet is 'in_progress'.
-///   - The assigned Salesman: update each row's Credit/Udhaar half while
-///     the sheet is 'in_progress'.
+/// Full detail of one Settlement Sheet, redesigned as a structured form
+/// (mirroring the client's paper "Cash / Credit Settlement Sheet") instead
+/// of a spreadsheet: a Settlement Summary section for the route-level
+/// totals, followed by the existing Customer-wise Details list.
+///
+/// One shared screen for everyone — what a viewer can DO here depends on
+/// who they are relative to the sheet (checked client-side only for UX —
+/// the real enforcement is server-side in SettlementService):
+///   - Admin: move the sheet Draft -> In Progress -> Completed (final
+///     confirmation), edit the Old Short carry-forward figure, and (if
+///     needed) fill in any other field.
+///   - The assigned Delivery Agent: update the route-level Returns /
+///     Damage Return / Discount / Cash / Online-Bank / Cheque totals, and
+///     each customer row's delivery half, while the sheet is 'in_progress'.
+///   - The assigned Salesman: update the route-level Credit/Udhaar total,
+///     and each customer row's Credit/Udhaar half, while 'in_progress'.
 class SettlementDetailScreen extends ConsumerWidget {
   const SettlementDetailScreen({super.key, required this.sheetId});
 
@@ -44,21 +52,29 @@ class SettlementDetailScreen extends ConsumerWidget {
           final isAdmin = user?.isAdmin ?? false;
           final isAgent = user != null && user.id == sheet.deliveryAgentId;
           final isSalesman = user != null && user.id == sheet.salesmanId;
+          final inProgress = sheet.status == 'in_progress';
 
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+          return ListView(
             children: [
               _Header(sheet: sheet, isAdmin: isAdmin),
               const SizedBox(height: 16),
-              Expanded(
-                child: ListView.separated(
-                  itemCount: sheet.items.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 10),
-                  itemBuilder: (context, i) => _ItemCard(
+              _SettlementSummaryForm(
+                sheet: sheet,
+                canEditAgentSummary: (isAdmin || isAgent) && inProgress,
+                canEditSalesmanSummary: (isAdmin || isSalesman) && inProgress,
+                canEditAdminSummary: isAdmin && sheet.status != 'completed',
+              ),
+              const SizedBox(height: 20),
+              Text('Customer-wise Details', style: AppTextStyles.heading3),
+              const SizedBox(height: 10),
+              ...sheet.items.map(
+                (item) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _ItemCard(
                     sheet: sheet,
-                    item: sheet.items[i],
-                    canEditDelivery: (isAdmin || isAgent) && sheet.status == 'in_progress',
-                    canEditCredit: (isAdmin || isSalesman) && sheet.status == 'in_progress',
+                    item: item,
+                    canEditDelivery: (isAdmin || isAgent) && inProgress,
+                    canEditCredit: (isAdmin || isSalesman) && inProgress,
                   ),
                 ),
               ),
@@ -116,9 +132,13 @@ class _Header extends ConsumerWidget {
                 StatusBadge(label: Formatters.roleLabel(sheet.status), color: _statusColor(sheet.status)),
               ],
             ),
+            if (sheet.pickSheetNo != null && sheet.pickSheetNo!.isNotEmpty) ...[
+              const SizedBox(height: 2),
+              Text('Pick Sheet No: ${sheet.pickSheetNo}', style: AppTextStyles.caption),
+            ],
             const SizedBox(height: 4),
             Text(
-              '${Formatters.date(sheet.sheetDate)} · Agent: ${sheet.deliveryAgentName} · Salesman: ${sheet.salesmanName}',
+              '${Formatters.date(sheet.sheetDate)} · Delivery Agent: ${sheet.deliveryAgentName} · PSR/Salesman: ${sheet.salesmanName}',
               style: AppTextStyles.bodySecondary,
             ),
             if (sheet.notes != null && sheet.notes!.isNotEmpty) ...[
@@ -149,7 +169,7 @@ class _Header extends ConsumerWidget {
                     ),
                   if (sheet.status == 'in_progress')
                     AppButton(
-                      label: 'Complete Sheet',
+                      label: 'Complete Sheet (Final Confirmation)',
                       expand: false,
                       isLoading: mutationState.isLoading,
                       onPressed: () => _changeStatus(context, ref, 'completed'),
@@ -178,6 +198,281 @@ class _StatLabel extends StatelessWidget {
         Text(label, style: AppTextStyles.caption),
         Text(value, style: AppTextStyles.amount),
       ],
+    );
+  }
+}
+
+/// A plain label/value row used for fields the current viewer cannot edit
+/// (or that are always computed/read-only, like Day Short / Total Balance).
+class _SummaryDisplayRow extends StatelessWidget {
+  const _SummaryDisplayRow({required this.label, required this.value, this.emphasize = false});
+
+  final String label;
+  final String value;
+  final bool emphasize;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          Expanded(child: Text(label, style: AppTextStyles.body)),
+          Text(value, style: emphasize ? AppTextStyles.amount : AppTextStyles.body),
+        ],
+      ),
+    );
+  }
+}
+
+/// The Settlement Summary section — the paper sheet's left-hand column of
+/// route-level totals, rendered as a structured form. Three independently
+/// editable groups (Delivery Agent / Salesman / Admin), each following the
+/// same inline "Update -> edit fields -> Save/Cancel" pattern as the
+/// customer row cards below, so the interaction stays consistent across
+/// the whole screen.
+class _SettlementSummaryForm extends ConsumerStatefulWidget {
+  const _SettlementSummaryForm({
+    required this.sheet,
+    required this.canEditAgentSummary,
+    required this.canEditSalesmanSummary,
+    required this.canEditAdminSummary,
+  });
+
+  final SettlementSheetDetail sheet;
+  final bool canEditAgentSummary;
+  final bool canEditSalesmanSummary;
+  final bool canEditAdminSummary;
+
+  @override
+  ConsumerState<_SettlementSummaryForm> createState() => _SettlementSummaryFormState();
+}
+
+class _SettlementSummaryFormState extends ConsumerState<_SettlementSummaryForm> {
+  bool _editingAgent = false;
+  bool _editingSalesman = false;
+  bool _editingAdmin = false;
+
+  late final _returnsController = TextEditingController(text: widget.sheet.returnsAmount.toStringAsFixed(2));
+  late final _damageReturnController =
+      TextEditingController(text: widget.sheet.damageReturnAmount.toStringAsFixed(2));
+  late final _discountController = TextEditingController(text: widget.sheet.discountAmount.toStringAsFixed(2));
+  late final _cashController = TextEditingController(text: widget.sheet.cashAmount.toStringAsFixed(2));
+  late final _onlineController = TextEditingController(text: widget.sheet.onlineAmount.toStringAsFixed(2));
+  late final _chequeController = TextEditingController(text: widget.sheet.chequeAmount.toStringAsFixed(2));
+
+  late final _creditBillsController =
+      TextEditingController(text: widget.sheet.creditBillsAmount.toStringAsFixed(2));
+
+  late final _oldShortController = TextEditingController(text: widget.sheet.oldShortAmount.toStringAsFixed(2));
+
+  @override
+  void dispose() {
+    _returnsController.dispose();
+    _damageReturnController.dispose();
+    _discountController.dispose();
+    _cashController.dispose();
+    _onlineController.dispose();
+    _chequeController.dispose();
+    _creditBillsController.dispose();
+    _oldShortController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveAgentSummary() async {
+    final success = await ref.read(settlementMutationControllerProvider.notifier).updateAgentSummary(
+          sheetId: widget.sheet.id,
+          returnsAmount: double.tryParse(_returnsController.text.trim()) ?? 0,
+          damageReturnAmount: double.tryParse(_damageReturnController.text.trim()) ?? 0,
+          discountAmount: double.tryParse(_discountController.text.trim()) ?? 0,
+          cashAmount: double.tryParse(_cashController.text.trim()) ?? 0,
+          onlineAmount: double.tryParse(_onlineController.text.trim()) ?? 0,
+          chequeAmount: double.tryParse(_chequeController.text.trim()) ?? 0,
+        );
+    if (!mounted) return;
+    if (success) {
+      setState(() => _editingAgent = false);
+    } else {
+      _showError();
+    }
+  }
+
+  Future<void> _saveSalesmanSummary() async {
+    final success = await ref.read(settlementMutationControllerProvider.notifier).updateSalesmanSummary(
+          sheetId: widget.sheet.id,
+          creditBillsAmount: double.tryParse(_creditBillsController.text.trim()) ?? 0,
+        );
+    if (!mounted) return;
+    if (success) {
+      setState(() => _editingSalesman = false);
+    } else {
+      _showError();
+    }
+  }
+
+  Future<void> _saveAdminSummary() async {
+    final success = await ref.read(settlementMutationControllerProvider.notifier).updateAdminSummary(
+          sheetId: widget.sheet.id,
+          oldShortAmount: double.tryParse(_oldShortController.text.trim()) ?? 0,
+        );
+    if (!mounted) return;
+    if (success) {
+      setState(() => _editingAdmin = false);
+    } else {
+      _showError();
+    }
+  }
+
+  void _showError() {
+    final state = ref.read(settlementMutationControllerProvider);
+    final failure = state.hasError ? state.error as Failure : Failure.unknown();
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(failure.message), backgroundColor: Theme.of(context).colorScheme.error));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final sheet = widget.sheet;
+    final mutationState = ref.watch(settlementMutationControllerProvider);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Settlement Summary', style: AppTextStyles.heading3),
+            const Divider(),
+            _SummaryDisplayRow(label: 'Pick Sheet Value', value: Formatters.currency(sheet.pickSheetValue)),
+
+            // --- Delivery Agent (or Admin) route totals ---
+            if (widget.canEditAgentSummary && !_editingAgent)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton(
+                  onPressed: () => setState(() => _editingAgent = true),
+                  child: const Text('Update Route Totals'),
+                ),
+              ),
+            if (_editingAgent) ...[
+              const SizedBox(height: 6),
+              AppTextField(
+                label: 'Returns',
+                controller: _returnsController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              ),
+              const SizedBox(height: 10),
+              AppTextField(
+                label: 'Damage Return',
+                controller: _damageReturnController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              ),
+              const SizedBox(height: 10),
+              AppTextField(
+                label: 'Discount',
+                controller: _discountController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              ),
+              const SizedBox(height: 10),
+              AppTextField(
+                label: 'Cash',
+                controller: _cashController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              ),
+              const SizedBox(height: 10),
+              AppTextField(
+                label: 'Online / Bank',
+                controller: _onlineController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              ),
+              const SizedBox(height: 10),
+              AppTextField(
+                label: 'Cheque',
+                controller: _chequeController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  TextButton(onPressed: () => setState(() => _editingAgent = false), child: const Text('Cancel')),
+                  const Spacer(),
+                  AppButton(label: 'Save', expand: false, isLoading: mutationState.isLoading, onPressed: _saveAgentSummary),
+                ],
+              ),
+            ] else ...[
+              _SummaryDisplayRow(label: 'Returns', value: Formatters.currency(sheet.returnsAmount)),
+              _SummaryDisplayRow(label: 'Damage Return', value: Formatters.currency(sheet.damageReturnAmount)),
+              _SummaryDisplayRow(label: 'Discount', value: Formatters.currency(sheet.discountAmount)),
+              _SummaryDisplayRow(label: 'Cash', value: Formatters.currency(sheet.cashAmount)),
+              _SummaryDisplayRow(label: 'Online / Bank', value: Formatters.currency(sheet.onlineAmount)),
+              _SummaryDisplayRow(label: 'Cheque', value: Formatters.currency(sheet.chequeAmount)),
+            ],
+
+            const Divider(),
+
+            // --- Salesman (or Admin) Credit/Udhaar total ---
+            if (widget.canEditSalesmanSummary && !_editingSalesman)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton(
+                  onPressed: () => setState(() => _editingSalesman = true),
+                  child: const Text('Update Credit / Udhaar'),
+                ),
+              ),
+            if (_editingSalesman) ...[
+              const SizedBox(height: 6),
+              AppTextField(
+                label: 'Credit / Udhaar (Credit Bills)',
+                controller: _creditBillsController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  TextButton(onPressed: () => setState(() => _editingSalesman = false), child: const Text('Cancel')),
+                  const Spacer(),
+                  AppButton(
+                      label: 'Save', expand: false, isLoading: mutationState.isLoading, onPressed: _saveSalesmanSummary),
+                ],
+              ),
+            ] else
+              _SummaryDisplayRow(label: 'Credit / Udhaar', value: Formatters.currency(sheet.creditBillsAmount)),
+
+            const Divider(),
+            _SummaryDisplayRow(label: 'Day Short', value: Formatters.currency(sheet.dayShort)),
+
+            // --- Admin-only carry-forward figure ---
+            if (widget.canEditAdminSummary && !_editingAdmin)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton(
+                  onPressed: () => setState(() => _editingAdmin = true),
+                  child: const Text('Update Old Short'),
+                ),
+              ),
+            if (_editingAdmin) ...[
+              const SizedBox(height: 6),
+              AppTextField(
+                label: 'Old Short',
+                controller: _oldShortController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  TextButton(onPressed: () => setState(() => _editingAdmin = false), child: const Text('Cancel')),
+                  const Spacer(),
+                  AppButton(label: 'Save', expand: false, isLoading: mutationState.isLoading, onPressed: _saveAdminSummary),
+                ],
+              ),
+            ] else
+              _SummaryDisplayRow(label: 'Old Short', value: Formatters.currency(sheet.oldShortAmount)),
+
+            const Divider(),
+            _SummaryDisplayRow(label: 'Total Balance', value: Formatters.currency(sheet.totalBalance), emphasize: true),
+          ],
+        ),
+      ),
     );
   }
 }

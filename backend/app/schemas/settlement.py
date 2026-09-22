@@ -22,6 +22,8 @@ class SettlementSheetCreateRequest(BaseModel):
     delivery_agent_id: uuid.UUID
     salesman_id: uuid.UUID
     notes: str | None = None
+    pick_sheet_no: str | None = None
+    pick_sheet_value: Decimal = Field(default=Decimal("0"), ge=0)
     items: list[SettlementItemCreateRequest] = Field(min_length=1)
 
 
@@ -66,6 +68,31 @@ class SettlementItemCreditUpdateRequest(BaseModel):
 
     credit_collected: Decimal = Field(ge=0)
     salesman_notes: str | None = None
+
+
+class SettlementAgentSummaryUpdateRequest(BaseModel):
+    """The Delivery Agent's (or Admin's) route-level totals for the sheet
+    itself (distinct from any one row) — the left-hand column of the paper
+    settlement sheet."""
+
+    returns_amount: Decimal = Field(default=Decimal("0"), ge=0)
+    damage_return_amount: Decimal = Field(default=Decimal("0"), ge=0)
+    discount_amount: Decimal = Field(default=Decimal("0"), ge=0)
+    cash_amount: Decimal = Field(default=Decimal("0"), ge=0)
+    online_amount: Decimal = Field(default=Decimal("0"), ge=0)
+    cheque_amount: Decimal = Field(default=Decimal("0"), ge=0)
+
+
+class SettlementSalesmanSummaryUpdateRequest(BaseModel):
+    """The Salesman's (or Admin's) sheet-level Credit/Udhaar total."""
+
+    credit_bills_amount: Decimal = Field(default=Decimal("0"), ge=0)
+
+
+class SettlementAdminSummaryUpdateRequest(BaseModel):
+    """Admin-only carry-forward figure from a prior unresolved sheet."""
+
+    old_short_amount: Decimal = Field(default=Decimal("0"), ge=0)
 
 
 class SettlementItemResponse(BaseModel):
@@ -130,6 +157,18 @@ class SettlementSheetResponse(BaseModel):
     salesman_name: str
     status: str
     notes: str | None
+    pick_sheet_no: str | None
+    pick_sheet_value: str
+    returns_amount: str
+    damage_return_amount: str
+    discount_amount: str
+    cash_amount: str
+    online_amount: str
+    cheque_amount: str
+    credit_bills_amount: str
+    old_short_amount: str
+    day_short: str
+    total_balance: str
     summary: SettlementSheetSummary
     created_at: datetime
     updated_at: datetime
