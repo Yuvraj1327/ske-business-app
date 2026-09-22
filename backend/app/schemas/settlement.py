@@ -16,10 +16,20 @@ class SettlementItemCreateRequest(BaseModel):
     credit_amount: Decimal = Field(default=Decimal("0"), ge=0)
 
 
+class SettlementItemAddRequest(BaseModel):
+    """Add one customer row to an already-existing sheet — same shape as
+    SettlementItemCreateRequest, used by SettlementService.add_item (Admin
+    or the assigned Delivery Agent, while the sheet isn't 'completed')."""
+
+    customer_id: uuid.UUID
+    invoice_amount: Decimal = Field(default=Decimal("0"), ge=0)
+    credit_amount: Decimal = Field(default=Decimal("0"), ge=0)
+
+
 class SettlementSheetCreateRequest(BaseModel):
     sheet_date: date
     delivery_agent_id: uuid.UUID
-    salesman_id: uuid.UUID
+    salesman_ids: list[uuid.UUID] = Field(min_length=1)
     notes: str | None = None
     # General / reconciliation fields — manually entered by Admin.
     pick_sheet_no: str | None = None
@@ -32,7 +42,9 @@ class SettlementSheetCreateRequest(BaseModel):
     cheque_amount: Decimal = Field(default=Decimal("0"), ge=0)
     credit_bills_amount: Decimal = Field(default=Decimal("0"), ge=0)
     old_short_amount: Decimal = Field(default=Decimal("0"), ge=0)
-    items: list[SettlementItemCreateRequest] = Field(min_length=1)
+    # Customer rows are optional at creation — the Delivery Agent can add
+    # them later via SettlementService.add_item.
+    items: list[SettlementItemCreateRequest] = Field(default_factory=list)
 
 
 class SettlementSheetUpdateRequest(BaseModel):
@@ -42,7 +54,7 @@ class SettlementSheetUpdateRequest(BaseModel):
 
     sheet_date: date | None = None
     delivery_agent_id: uuid.UUID | None = None
-    salesman_id: uuid.UUID | None = None
+    salesman_ids: list[uuid.UUID] | None = None
     notes: str | None = None
     pick_sheet_no: str | None = None
     pick_sheet_value: Decimal | None = Field(default=None, ge=0)
@@ -105,6 +117,7 @@ class SettlementItemResponse(BaseModel):
     customer_id: uuid.UUID
     customer_code: str | None
     customer_name: str
+    assigned_salesman_id: uuid.UUID | None
     invoice_amount: str
     delivery_status: str
     cash_amount: str
@@ -126,6 +139,7 @@ class SettlementItemResponse(BaseModel):
             customer_id=item.customer_id,
             customer_code=item.customer_code,
             customer_name=item.customer_name,
+            assigned_salesman_id=item.customer.assigned_salesman_id if item.customer else None,
             invoice_amount=money_str(item.invoice_amount),
             delivery_status=item.delivery_status,
             cash_amount=money_str(item.cash_amount),
@@ -151,6 +165,11 @@ class SettlementSheetSummary(BaseModel):
     total_credit_outstanding: str
 
 
+class SettlementSalesmanRef(BaseModel):
+    id: uuid.UUID
+    name: str
+
+
 class SettlementSheetResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -159,8 +178,7 @@ class SettlementSheetResponse(BaseModel):
     sheet_date: date
     delivery_agent_id: uuid.UUID
     delivery_agent_name: str
-    salesman_id: uuid.UUID
-    salesman_name: str
+    salesmen: list[SettlementSalesmanRef]
     status: str
     notes: str | None
     # General / reconciliation fields — manually entered by Admin.

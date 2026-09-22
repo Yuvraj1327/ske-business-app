@@ -95,7 +95,7 @@ class SettlementMutationController extends AsyncNotifier<void> {
   Future<SettlementSheetDetail?> createSheet({
     required DateTime sheetDate,
     required String deliveryAgentId,
-    required String salesmanId,
+    required List<String> salesmanIds,
     String? notes,
     String? pickSheetNo,
     double pickSheetValue = 0,
@@ -107,14 +107,14 @@ class SettlementMutationController extends AsyncNotifier<void> {
     double chequeAmount = 0,
     double creditBillsAmount = 0,
     double oldShortAmount = 0,
-    required List<DraftSettlementRow> items,
+    List<DraftSettlementRow> items = const [],
   }) async {
     state = const AsyncLoading();
     try {
       final sheet = await _repo.createSheet(
         sheetDate: sheetDate,
         deliveryAgentId: deliveryAgentId,
-        salesmanId: salesmanId,
+        salesmanIds: salesmanIds,
         notes: notes,
         pickSheetNo: pickSheetNo,
         pickSheetValue: pickSheetValue,
@@ -147,7 +147,7 @@ class SettlementMutationController extends AsyncNotifier<void> {
     required String sheetId,
     DateTime? sheetDate,
     String? deliveryAgentId,
-    String? salesmanId,
+    List<String>? salesmanIds,
     String? notes,
     String? pickSheetNo,
     double? pickSheetValue,
@@ -165,7 +165,7 @@ class SettlementMutationController extends AsyncNotifier<void> {
           sheetId,
           sheetDate: sheetDate,
           deliveryAgentId: deliveryAgentId,
-          salesmanId: salesmanId,
+          salesmanIds: salesmanIds,
           notes: notes,
           pickSheetNo: pickSheetNo,
           pickSheetValue: pickSheetValue,
@@ -177,6 +177,23 @@ class SettlementMutationController extends AsyncNotifier<void> {
           chequeAmount: chequeAmount,
           creditBillsAmount: creditBillsAmount,
           oldShortAmount: oldShortAmount,
+        ),
+        sheetId: sheetId,
+      );
+
+  /// Add one customer row to an already-existing sheet.
+  Future<bool> addItem({
+    required String sheetId,
+    required String customerId,
+    required double invoiceAmount,
+    required double creditAmount,
+  }) =>
+      _run(
+        () => _repo.addItem(
+          sheetId,
+          customerId: customerId,
+          invoiceAmount: invoiceAmount,
+          creditAmount: creditAmount,
         ),
         sheetId: sheetId,
       );

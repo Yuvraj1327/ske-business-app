@@ -7,6 +7,7 @@ import pytest
 from pydantic import ValidationError as PydanticValidationError
 
 from app.schemas.settlement import (
+    SettlementItemAddRequest,
     SettlementItemCreditUpdateRequest,
     SettlementItemDeliveryUpdateRequest,
     SettlementSheetCreateRequest,
@@ -15,23 +16,36 @@ from app.schemas.settlement import (
 )
 
 
-def test_settlement_sheet_requires_at_least_one_item():
+def test_settlement_sheet_accepts_zero_items():
+    """Customer rows are optional at creation — the Delivery Agent can add
+    them later via SettlementItemAddRequest / POST /settlements/{id}/items."""
+    payload = SettlementSheetCreateRequest(
+        sheet_date="2026-09-22",
+        delivery_agent_id=uuid.uuid4(),
+        salesman_ids=[uuid.uuid4()],
+        items=[],
+    )
+    assert payload.items == []
+
+
+def test_settlement_sheet_requires_at_least_one_salesman():
     with pytest.raises(PydanticValidationError):
         SettlementSheetCreateRequest(
             sheet_date="2026-09-22",
             delivery_agent_id=uuid.uuid4(),
-            salesman_id=uuid.uuid4(),
+            salesman_ids=[],
             items=[],
         )
 
 
-def test_settlement_sheet_accepts_minimal_valid_payload():
+def test_settlement_sheet_accepts_multiple_salesmen():
     payload = SettlementSheetCreateRequest(
         sheet_date="2026-09-22",
         delivery_agent_id=uuid.uuid4(),
-        salesman_id=uuid.uuid4(),
+        salesman_ids=[uuid.uuid4(), uuid.uuid4()],
         items=[{"customer_id": uuid.uuid4(), "invoice_amount": "500.00"}],
     )
+    assert len(payload.salesman_ids) == 2
     assert len(payload.items) == 1
     assert payload.items[0].credit_amount == 0
 
@@ -41,9 +55,20 @@ def test_settlement_item_invoice_amount_cannot_be_negative():
         SettlementSheetCreateRequest(
             sheet_date="2026-09-22",
             delivery_agent_id=uuid.uuid4(),
-            salesman_id=uuid.uuid4(),
+            salesman_ids=[uuid.uuid4()],
             items=[{"customer_id": uuid.uuid4(), "invoice_amount": "-1"}],
         )
+
+
+def test_settlement_item_add_request_accepts_minimal_payload():
+    payload = SettlementItemAddRequest(customer_id=uuid.uuid4())
+    assert payload.invoice_amount == 0
+    assert payload.credit_amount == 0
+
+
+def test_settlement_item_add_request_rejects_negative_invoice_amount():
+    with pytest.raises(PydanticValidationError):
+        SettlementItemAddRequest(customer_id=uuid.uuid4(), invoice_amount="-1")
 
 
 def test_delivery_status_must_be_valid():

@@ -27,7 +27,7 @@ class SettlementRepository {
   Future<SettlementSheetDetail> createSheet({
     required DateTime sheetDate,
     required String deliveryAgentId,
-    required String salesmanId,
+    required List<String> salesmanIds,
     String? notes,
     String? pickSheetNo,
     double pickSheetValue = 0,
@@ -39,14 +39,14 @@ class SettlementRepository {
     double chequeAmount = 0,
     double creditBillsAmount = 0,
     double oldShortAmount = 0,
-    required List<DraftSettlementRow> items,
+    List<DraftSettlementRow> items = const [],
   }) async {
     final response = await _apiClient.post<Map<String, dynamic>>(
       '/settlements',
       data: {
         'sheet_date': _formatDate(sheetDate),
         'delivery_agent_id': deliveryAgentId,
-        'salesman_id': salesmanId,
+        'salesman_ids': salesmanIds,
         if (notes != null && notes.isNotEmpty) 'notes': notes,
         if (pickSheetNo != null && pickSheetNo.isNotEmpty) 'pick_sheet_no': pickSheetNo,
         'pick_sheet_value': pickSheetValue.toStringAsFixed(2),
@@ -77,7 +77,7 @@ class SettlementRepository {
     String sheetId, {
     DateTime? sheetDate,
     String? deliveryAgentId,
-    String? salesmanId,
+    List<String>? salesmanIds,
     String? notes,
     String? pickSheetNo,
     double? pickSheetValue,
@@ -95,7 +95,7 @@ class SettlementRepository {
       data: {
         if (sheetDate != null) 'sheet_date': _formatDate(sheetDate),
         if (deliveryAgentId != null) 'delivery_agent_id': deliveryAgentId,
-        if (salesmanId != null) 'salesman_id': salesmanId,
+        if (salesmanIds != null) 'salesman_ids': salesmanIds,
         if (notes != null) 'notes': notes,
         if (pickSheetNo != null) 'pick_sheet_no': pickSheetNo,
         if (pickSheetValue != null) 'pick_sheet_value': pickSheetValue.toStringAsFixed(2),
@@ -110,6 +110,26 @@ class SettlementRepository {
       },
     );
     return SettlementSheetDetail.fromJson(response.data!);
+  }
+
+  /// Add one customer row to an already-existing sheet — the assigned
+  /// Delivery Agent's (or Admin's) way to add customers after creation,
+  /// since rows are optional at creation time.
+  Future<SettlementSheetItem> addItem(
+    String sheetId, {
+    required String customerId,
+    required double invoiceAmount,
+    required double creditAmount,
+  }) async {
+    final response = await _apiClient.post<Map<String, dynamic>>(
+      '/settlements/$sheetId/items',
+      data: {
+        'customer_id': customerId,
+        'invoice_amount': invoiceAmount.toStringAsFixed(2),
+        'credit_amount': creditAmount.toStringAsFixed(2),
+      },
+    );
+    return SettlementSheetItem.fromJson(response.data!);
   }
 
   Future<SettlementSheetDetail> updateStatus(String sheetId, String status) async {

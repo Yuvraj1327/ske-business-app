@@ -1,11 +1,11 @@
 import uuid
 from datetime import date
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from app.models.settlement import SettlementSheet, SettlementSheetItem
+from app.models.settlement import SettlementSheet, SettlementSheetItem, settlement_sheet_salesmen
 from app.utils.pagination import PaginationParams, paginate
 
 
@@ -16,7 +16,8 @@ class SettlementRepository:
     async def get_by_id(self, sheet_id: uuid.UUID) -> SettlementSheet | None:
         result = await self.db.execute(
             select(SettlementSheet)
-            .options(joinedload(SettlementSheet.items))
+            .options(joinedload(SettlementSheet.items).joinedload(SettlementSheetItem.customer))
+            .options(joinedload(SettlementSheet.salesmen))
             .where(SettlementSheet.id == sheet_id)
         )
         return result.unique().scalar_one_or_none()
@@ -39,10 +40,16 @@ class SettlementRepository:
     ):
         stmt = select(SettlementSheet).order_by(SettlementSheet.sheet_date.desc(), SettlementSheet.created_at.desc())
         if scoped_user_id is not None:
+            is_scoped_salesman = exists(
+                select(1).where(
+                    settlement_sheet_salesmen.c.settlement_sheet_id == SettlementSheet.id,
+                    settlement_sheet_salesmen.c.user_id == scoped_user_id,
+                )
+            )
             stmt = stmt.where(
                 or_(
                     SettlementSheet.delivery_agent_id == scoped_user_id,
-                    SettlementSheet.salesman_id == scoped_user_id,
+                    is_scoped_salesman,
                 )
             )
         if status:
@@ -62,7 +69,8 @@ class SettlementRepository:
     async def get_item(self, item_id: uuid.UUID) -> SettlementSheetItem | None:
         result = await self.db.execute(
             select(SettlementSheetItem)
-            .options(joinedload(SettlementSheetItem.sheet))
+            .options(joinedload(SettlementSheetItem.sheet).joinedload(SettlementSheet.salesmen))
+            .options(joinedload(SettlementSheetItem.customer))
             .where(SettlementSheetItem.id == item_id)
         )
         return result.unique().scalar_one_or_none()

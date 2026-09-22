@@ -1,5 +1,19 @@
 import 'package:equatable/equatable.dart';
 
+class SettlementSalesmanRef extends Equatable {
+  final String id;
+  final String name;
+
+  const SettlementSalesmanRef({required this.id, required this.name});
+
+  factory SettlementSalesmanRef.fromJson(Map<String, dynamic> json) {
+    return SettlementSalesmanRef(id: json['id'] as String, name: json['name'] as String);
+  }
+
+  @override
+  List<Object?> get props => [id, name];
+}
+
 class SettlementSheetSummary extends Equatable {
   final int totalItems;
   final int delivered;
@@ -42,8 +56,7 @@ class SettlementSheet extends Equatable {
   final DateTime sheetDate;
   final String deliveryAgentId;
   final String deliveryAgentName;
-  final String salesmanId;
-  final String salesmanName;
+  final List<SettlementSalesmanRef> salesmen;
   final String status; // draft | in_progress | completed
   final String? notes;
   // General / reconciliation fields — manually entered by Admin.
@@ -67,8 +80,7 @@ class SettlementSheet extends Equatable {
     required this.sheetDate,
     required this.deliveryAgentId,
     required this.deliveryAgentName,
-    required this.salesmanId,
-    required this.salesmanName,
+    required this.salesmen,
     required this.status,
     this.notes,
     this.pickSheetNo,
@@ -93,8 +105,9 @@ class SettlementSheet extends Equatable {
       sheetDate: DateTime.parse(json['sheet_date'] as String),
       deliveryAgentId: json['delivery_agent_id'] as String,
       deliveryAgentName: json['delivery_agent_name'] as String,
-      salesmanId: json['salesman_id'] as String,
-      salesmanName: json['salesman_name'] as String,
+      salesmen: (json['salesmen'] as List)
+          .map((e) => SettlementSalesmanRef.fromJson(e as Map<String, dynamic>))
+          .toList(),
       status: json['status'] as String,
       notes: json['notes'] as String?,
       pickSheetNo: json['pick_sheet_no'] as String?,
@@ -120,8 +133,7 @@ class SettlementSheet extends Equatable {
         sheetDate,
         deliveryAgentId,
         deliveryAgentName,
-        salesmanId,
-        salesmanName,
+        salesmen,
         status,
         notes,
         pickSheetNo,
@@ -146,6 +158,7 @@ class SettlementSheetItem extends Equatable {
   final String customerId;
   final String? customerCode;
   final String customerName;
+  final String? assignedSalesmanId;
   final double invoiceAmount;
   final String deliveryStatus; // pending | delivered | not_delivered
   final double cashAmount;
@@ -165,6 +178,7 @@ class SettlementSheetItem extends Equatable {
     required this.customerId,
     this.customerCode,
     required this.customerName,
+    this.assignedSalesmanId,
     required this.invoiceAmount,
     required this.deliveryStatus,
     required this.cashAmount,
@@ -186,6 +200,7 @@ class SettlementSheetItem extends Equatable {
       customerId: json['customer_id'] as String,
       customerCode: json['customer_code'] as String?,
       customerName: json['customer_name'] as String,
+      assignedSalesmanId: json['assigned_salesman_id'] as String?,
       invoiceAmount: double.parse(json['invoice_amount'] as String),
       deliveryStatus: json['delivery_status'] as String,
       cashAmount: double.parse(json['cash_amount'] as String),
@@ -208,6 +223,7 @@ class SettlementSheetItem extends Equatable {
         customerId,
         customerCode,
         customerName,
+        assignedSalesmanId,
         invoiceAmount,
         deliveryStatus,
         cashAmount,
@@ -232,8 +248,7 @@ class SettlementSheetDetail extends SettlementSheet {
     required super.sheetDate,
     required super.deliveryAgentId,
     required super.deliveryAgentName,
-    required super.salesmanId,
-    required super.salesmanName,
+    required super.salesmen,
     required super.status,
     super.notes,
     super.pickSheetNo,
@@ -260,8 +275,7 @@ class SettlementSheetDetail extends SettlementSheet {
       sheetDate: base.sheetDate,
       deliveryAgentId: base.deliveryAgentId,
       deliveryAgentName: base.deliveryAgentName,
-      salesmanId: base.salesmanId,
-      salesmanName: base.salesmanName,
+      salesmen: base.salesmen,
       status: base.status,
       notes: base.notes,
       pickSheetNo: base.pickSheetNo,

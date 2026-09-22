@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import Column, Date, DateTime, ForeignKey, Integer, Numeric, String, Table, Text
 from sqlalchemy.dialects.postgresql import ENUM, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -15,6 +15,18 @@ SettlementDeliveryStatusEnum = ENUM(
     "pending", "delivered", "not_delivered", name="settlement_delivery_status_enum", create_type=False
 )
 
+# Join table for the sheet <-> its (possibly several) assigned Salesmen. See
+# database/migrations/008_settlement_multi_salesman_and_add_item.sql — the
+# old single `salesman_id` column on settlement_sheets still exists in the
+# database (never dropped, per this session's migration-safety rule) but is
+# deliberately left unmapped here; this table is now the source of truth.
+settlement_sheet_salesmen = Table(
+    "settlement_sheet_salesmen",
+    Base.metadata,
+    Column("settlement_sheet_id", UUID(as_uuid=True), ForeignKey("settlement_sheets.id", ondelete="CASCADE"), primary_key=True),
+    Column("user_id", UUID(as_uuid=True), ForeignKey("users.id"), primary_key=True),
+)
+
 
 class SettlementSheet(Base):
     __tablename__ = "settlement_sheets"
@@ -23,7 +35,7 @@ class SettlementSheet(Base):
     sheet_no: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     sheet_date: Mapped[date] = mapped_column(Date, nullable=False)
     delivery_agent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    salesman_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    salesmen: Mapped[list["User"]] = relationship(secondary=settlement_sheet_salesmen, lazy="selectin")
     status: Mapped[str] = mapped_column(SettlementStatusEnum, nullable=False, default="draft")
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
@@ -83,3 +95,7 @@ class SettlementSheetItem(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
     sheet: Mapped["SettlementSheet"] = relationship(back_populates="items")
+    # One-way (no back_populates on Customer) — just so a row's Credit/Udhaar
+    # access check can read the customer's assigned salesman without an
+    # extra query. See SettlementService._check_item_salesman_access.
+    customer: Mapped["Customer"] = relationship(lazy="joined")

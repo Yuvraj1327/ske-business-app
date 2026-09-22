@@ -13,16 +13,20 @@ import '../../../../core/widgets/loading_view.dart';
 import '../../../../core/widgets/status_badge.dart';
 import '../../domain/settlement_models.dart';
 import '../providers/settlement_providers.dart';
+import '../widgets/add_settlement_row_dialog.dart';
 
-/// Full detail of one Settlement Sheet. What a viewer can DO here depends
-/// on who they are relative to the sheet (checked client-side only for
-/// UX — the real enforcement is server-side in SettlementService):
-///   - Admin: move the sheet Draft -> In Progress -> Completed, and (if
-///     needed) fill in either half of any row.
-///   - The assigned Delivery Agent: update each row's delivery half while
-///     the sheet is 'in_progress'.
-///   - The assigned Salesman: update each row's Credit/Udhaar half while
-///     the sheet is 'in_progress'.
+/// Full detail of one Settlement Sheet, laid out as clear sections —
+/// Basic Details -> Settlement Summary -> Customer-wise Details -> Final
+/// Review — so each role can immediately tell where they act (checked
+/// client-side only for UX; the real enforcement is server-side in
+/// SettlementService):
+///   - Admin: full access everywhere, plus Final Review's Start/Complete
+///     actions.
+///   - The assigned Delivery Agent: adds/updates customer rows' delivery
+///     half any time before the sheet is 'completed'.
+///   - Each assigned Salesman: updates the Credit/Udhaar half only for
+///     rows whose customer is actually assigned to them, while
+///     'in_progress'.
 class SettlementDetailScreen extends ConsumerStatefulWidget {
   const SettlementDetailScreen({super.key, required this.sheetId});
 
@@ -34,9 +38,28 @@ class SettlementDetailScreen extends ConsumerStatefulWidget {
 
 class _SettlementDetailScreenState extends ConsumerState<SettlementDetailScreen> {
   // Salesman-only working view: by default only show rows with a
-  // credit/udhaar amount, since that's the only half of the sheet a
-  // Salesman acts on. Admin and the Delivery Agent always see every row.
+  // credit/udhaar amount assigned to THEM, since that's the only half of
+  // the sheet a Salesman acts on. Admin and the Delivery Agent always see
+  // every row.
   bool _creditOnlyFilter = true;
+
+  Future<void> _addCustomer(String sheetId) async {
+    final row = await showAddSettlementRowDialog(context);
+    if (row == null) return;
+    final success = await ref.read(settlementMutationControllerProvider.notifier).addItem(
+          sheetId: sheetId,
+          customerId: row.customerId,
+          invoiceAmount: row.invoiceAmount,
+          creditAmount: row.creditAmount,
+        );
+    if (!mounted) return;
+    if (!success) {
+      final state = ref.read(settlementMutationControllerProvider);
+      final failure = state.hasError ? state.error as Failure : Failure.unknown();
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(failure.message), backgroundColor: Theme.of(context).colorScheme.error));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -54,46 +77,76 @@ class _SettlementDetailScreenState extends ConsumerState<SettlementDetailScreen>
         data: (sheet) {
           final isAdmin = user?.isAdmin ?? false;
           final isAgent = user != null && user.id == sheet.deliveryAgentId;
-          final isSalesman = user != null && user.id == sheet.salesmanId;
-          final isSalesmanOnly = isSalesman && !isAdmin && !isAgent;
+          final isSalesmanOnSheet = user != null && sheet.salesmen.any((s) => s.id == user.id);
+          final isSalesmanOnly = isSalesmanOnSheet && !isAdmin && !isAgent;
+          final canAddCustomer = (isAdmin || isAgent) && sheet.status != 'completed';
 
-          final visibleItems = (isSalesmanOnly && _creditOnlyFilter)
-              ? sheet.items.where((i) => i.creditAmount > 0).toList()
-              : sheet.items;
+          bool relevantToMe(SettlementSheetItem i) =>
+              i.creditAmount > 0 && (i.assignedSalesmanId == null || i.assignedSalesmanId == user?.id);
 
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _Header(sheet: sheet, isAdmin: isAdmin),
-              const SizedBox(height: 16),
-              if (isSalesmanOnly) ...[
+          final visibleItems =
+              (isSalesmanOnly && _creditOnlyFilter) ? sheet.items.where(relevantToMe).toList() : sheet.items;
+
+          return SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _BasicDetailsCard(sheet: sheet),
+                const SizedBox(height: 16),
+                _SettlementSummaryCard(sheet: sheet, isAdmin: isAdmin),
+                const SizedBox(height: 24),
                 Row(
                   children: [
-                    Text('Customers (${visibleItems.length})', style: AppTextStyles.heading3),
+                    Text('Customer-wise Details', style: AppTextStyles.heading3),
                     const Spacer(),
-                    TextButton(
+                    if (canAddCustomer)
+                      FilledButton.tonalIcon(
+                        onPressed: () => _addCustomer(sheet.id),
+                        icon: const Icon(Icons.person_add_alt_1_outlined, size: 18),
+                        label: const Text('Add Customer'),
+                      ),
+                  ],
+                ),
+                if (isSalesmanOnly) ...[
+                  const SizedBox(height: 4),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton(
                       onPressed: () => setState(() => _creditOnlyFilter = !_creditOnlyFilter),
                       child: Text(_creditOnlyFilter ? 'Show all customers' : 'Credit customers only'),
                     ),
-                  ],
-                ),
+                  ),
+                ],
                 const SizedBox(height: 8),
-              ],
-              Expanded(
-                child: visibleItems.isEmpty
-                    ? Text('No credit/udhaar customers on this sheet.', style: AppTextStyles.bodySecondary)
-                    : ListView.separated(
-                        itemCount: visibleItems.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 10),
-                        itemBuilder: (context, i) => _ItemCard(
-                          sheet: sheet,
-                          item: visibleItems[i],
-                          canEditDelivery: (isAdmin || isAgent) && sheet.status == 'in_progress',
-                          canEditCredit: (isAdmin || isSalesman) && sheet.status == 'in_progress',
-                        ),
+                if (visibleItems.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Text(
+                      isSalesmanOnly
+                          ? 'No credit/udhaar customers assigned to you on this sheet.'
+                          : 'No customers on this sheet yet.',
+                      style: AppTextStyles.bodySecondary,
+                    ),
+                  )
+                else
+                  ...visibleItems.map(
+                    (item) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _ItemCard(
+                        sheet: sheet,
+                        item: item,
+                        canEditDelivery: (isAdmin || isAgent) && sheet.status == 'in_progress',
+                        canEditCredit: (isAdmin ||
+                                (isSalesmanOnSheet &&
+                                    (item.assignedSalesmanId == null || item.assignedSalesmanId == user.id))) &&
+                            sheet.status == 'in_progress',
                       ),
-              ),
-            ],
+                    ),
+                  ),
+                const SizedBox(height: 24),
+                _FinalReviewSection(sheet: sheet, isAdmin: isAdmin),
+              ],
+            ),
           );
         },
       ),
@@ -101,20 +154,84 @@ class _SettlementDetailScreenState extends ConsumerState<SettlementDetailScreen>
   }
 }
 
-class _Header extends ConsumerStatefulWidget {
-  const _Header({required this.sheet, required this.isAdmin});
+Color _statusColor(String status) {
+  switch (status) {
+    case 'completed':
+      return AppColors.success;
+    case 'in_progress':
+      return AppColors.accent;
+    default:
+      return AppColors.textSecondary;
+  }
+}
+
+class _BasicDetailsCard extends StatelessWidget {
+  const _BasicDetailsCard({required this.sheet});
+
+  final SettlementSheetDetail sheet;
+
+  @override
+  Widget build(BuildContext context) {
+    final summary = sheet.summary;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Basic Details', style: AppTextStyles.heading3),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(child: Text(sheet.sheetNo, style: AppTextStyles.heading1)),
+                StatusBadge(label: Formatters.roleLabel(sheet.status), color: _statusColor(sheet.status)),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              '${Formatters.date(sheet.sheetDate)} · Agent: ${sheet.deliveryAgentName}',
+              style: AppTextStyles.bodySecondary,
+            ),
+            const SizedBox(height: 2),
+            Text(
+              'PSR / Salesman: ${sheet.salesmen.map((s) => s.name).join(', ')}',
+              style: AppTextStyles.bodySecondary,
+            ),
+            if (sheet.notes != null && sheet.notes!.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(sheet.notes!, style: AppTextStyles.body),
+            ],
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 20,
+              runSpacing: 8,
+              children: [
+                _StatLabel(label: 'Total Invoice', value: Formatters.currency(summary.totalInvoiceAmount)),
+                _StatLabel(label: 'Collected', value: Formatters.currency(summary.totalCollected)),
+                _StatLabel(label: 'Credit Outstanding', value: Formatters.currency(summary.totalCreditOutstanding)),
+                _StatLabel(label: 'Pending Rows', value: '${summary.pending}'),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SettlementSummaryCard extends ConsumerStatefulWidget {
+  const _SettlementSummaryCard({required this.sheet, required this.isAdmin});
 
   final SettlementSheetDetail sheet;
   final bool isAdmin;
 
   @override
-  ConsumerState<_Header> createState() => _HeaderState();
+  ConsumerState<_SettlementSummaryCard> createState() => _SettlementSummaryCardState();
 }
 
-class _HeaderState extends ConsumerState<_Header> {
-  bool _editingHeader = false;
+class _SettlementSummaryCardState extends ConsumerState<_SettlementSummaryCard> {
+  bool _editing = false;
 
-  late final TextEditingController _notesController = TextEditingController(text: widget.sheet.notes ?? '');
   late final TextEditingController _pickSheetNoController =
       TextEditingController(text: widget.sheet.pickSheetNo ?? '');
   late final TextEditingController _pickSheetValueController =
@@ -135,10 +252,10 @@ class _HeaderState extends ConsumerState<_Header> {
       TextEditingController(text: widget.sheet.creditBillsAmount.toStringAsFixed(2));
   late final TextEditingController _oldShortAmountController =
       TextEditingController(text: widget.sheet.oldShortAmount.toStringAsFixed(2));
+  late final TextEditingController _notesController = TextEditingController(text: widget.sheet.notes ?? '');
 
   @override
   void dispose() {
-    _notesController.dispose();
     _pickSheetNoController.dispose();
     _pickSheetValueController.dispose();
     _returnsAmountController.dispose();
@@ -149,30 +266,13 @@ class _HeaderState extends ConsumerState<_Header> {
     _chequeController.dispose();
     _creditBillsAmountController.dispose();
     _oldShortAmountController.dispose();
+    _notesController.dispose();
     super.dispose();
   }
 
   double _num(TextEditingController c) => double.tryParse(c.text.trim()) ?? 0;
 
-  Color _statusColor(String status) {
-    switch (status) {
-      case 'completed':
-        return AppColors.success;
-      case 'in_progress':
-        return AppColors.accent;
-      default:
-        return AppColors.textSecondary;
-    }
-  }
-
-  Future<void> _changeStatus(String newStatus) async {
-    final success =
-        await ref.read(settlementMutationControllerProvider.notifier).updateStatus(widget.sheet.id, newStatus);
-    if (!mounted) return;
-    if (!success) _showError();
-  }
-
-  Future<void> _saveHeader() async {
+  Future<void> _save() async {
     final success = await ref.read(settlementMutationControllerProvider.notifier).updateSheetHeader(
           sheetId: widget.sheet.id,
           notes: _notesController.text.trim(),
@@ -189,7 +289,7 @@ class _HeaderState extends ConsumerState<_Header> {
         );
     if (!mounted) return;
     if (success) {
-      setState(() => _editingHeader = false);
+      setState(() => _editing = false);
     } else {
       _showError();
     }
@@ -205,10 +305,8 @@ class _HeaderState extends ConsumerState<_Header> {
   @override
   Widget build(BuildContext context) {
     final sheet = widget.sheet;
-    final isAdmin = widget.isAdmin;
     final mutationState = ref.watch(settlementMutationControllerProvider);
-    final summary = sheet.summary;
-    final canEditHeader = isAdmin && sheet.status != 'completed';
+    final canEdit = widget.isAdmin && sheet.status != 'completed';
 
     return Card(
       child: Padding(
@@ -218,50 +316,26 @@ class _HeaderState extends ConsumerState<_Header> {
           children: [
             Row(
               children: [
-                Expanded(child: Text(sheet.sheetNo, style: AppTextStyles.heading1)),
-                StatusBadge(label: Formatters.roleLabel(sheet.status), color: _statusColor(sheet.status)),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '${Formatters.date(sheet.sheetDate)} · Agent: ${sheet.deliveryAgentName} · PSR/Salesman: ${sheet.salesmanName}',
-              style: AppTextStyles.bodySecondary,
-            ),
-            if (!_editingHeader && sheet.notes != null && sheet.notes!.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(sheet.notes!, style: AppTextStyles.body),
-            ],
-            const SizedBox(height: 14),
-            Wrap(
-              spacing: 20,
-              runSpacing: 8,
-              children: [
-                _StatLabel(label: 'Total Invoice', value: Formatters.currency(summary.totalInvoiceAmount)),
-                _StatLabel(label: 'Collected', value: Formatters.currency(summary.totalCollected)),
-                _StatLabel(label: 'Credit Outstanding', value: Formatters.currency(summary.totalCreditOutstanding)),
-                _StatLabel(label: 'Pending Rows', value: '${summary.pending}'),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
                 Text('Settlement Summary', style: AppTextStyles.heading3),
                 const Spacer(),
-                if (canEditHeader && !_editingHeader)
+                if (canEdit && !_editing)
                   IconButton(
                     icon: const Icon(Icons.edit_outlined),
                     tooltip: 'Edit settlement details',
-                    onPressed: () => setState(() => _editingHeader = true),
+                    onPressed: () => setState(() => _editing = true),
                   ),
               ],
             ),
             const SizedBox(height: 8),
-            if (!_editingHeader)
+            if (!_editing)
               Wrap(
                 spacing: 20,
                 runSpacing: 8,
                 children: [
-                  _StatLabel(label: 'Pick Sheet No.', value: sheet.pickSheetNo?.isNotEmpty == true ? sheet.pickSheetNo! : '-'),
+                  _StatLabel(
+                    label: 'Pick Sheet No.',
+                    value: sheet.pickSheetNo?.isNotEmpty == true ? sheet.pickSheetNo! : '-',
+                  ),
                   _StatLabel(label: 'Pick Sheet Value', value: Formatters.currency(sheet.pickSheetValue)),
                   _StatLabel(label: 'Returns Goods', value: Formatters.currency(sheet.returnsAmount)),
                   _StatLabel(label: 'Damage Return', value: Formatters.currency(sheet.damageReturnAmount)),
@@ -334,38 +408,97 @@ class _HeaderState extends ConsumerState<_Header> {
               const SizedBox(height: 12),
               Row(
                 children: [
-                  TextButton(onPressed: () => setState(() => _editingHeader = false), child: const Text('Cancel')),
+                  TextButton(onPressed: () => setState(() => _editing = false), child: const Text('Cancel')),
                   const Spacer(),
+                  AppButton(label: 'Save', expand: false, isLoading: mutationState.isLoading, onPressed: _save),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Admin's closing action on the sheet — Start (Draft -> In Progress) and
+/// Complete Sheet, kept as its own clearly-labeled section at the very
+/// bottom so it reads as the final step after everything else has been
+/// filled in, not something buried in the header.
+class _FinalReviewSection extends ConsumerWidget {
+  const _FinalReviewSection({required this.sheet, required this.isAdmin});
+
+  final SettlementSheetDetail sheet;
+  final bool isAdmin;
+
+  Future<void> _changeStatus(BuildContext context, WidgetRef ref, String newStatus) async {
+    final success = await ref.read(settlementMutationControllerProvider.notifier).updateStatus(sheet.id, newStatus);
+    if (!context.mounted) return;
+    if (!success) {
+      final state = ref.read(settlementMutationControllerProvider);
+      final failure = state.hasError ? state.error as Failure : Failure.unknown();
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(failure.message), backgroundColor: Theme.of(context).colorScheme.error));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (!isAdmin || sheet.status == 'completed') {
+      if (sheet.status == 'completed') {
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Icon(Icons.check_circle, color: AppColors.success),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text('Final Review complete — this settlement sheet is Completed.', style: AppTextStyles.body),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+      return const SizedBox.shrink();
+    }
+
+    final mutationState = ref.watch(settlementMutationControllerProvider);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Final Review', style: AppTextStyles.heading3),
+            const SizedBox(height: 6),
+            Text(
+              sheet.status == 'draft'
+                  ? 'Move this sheet to In Progress once the Delivery Agent and Salesmen are ready to start updating it.'
+                  : 'Review all customer rows above, then mark this sheet Completed once everything is confirmed.',
+              style: AppTextStyles.bodySecondary,
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                if (sheet.status == 'draft')
                   AppButton(
-                    label: 'Save',
+                    label: 'Start (Move to In Progress)',
                     expand: false,
                     isLoading: mutationState.isLoading,
-                    onPressed: _saveHeader,
+                    onPressed: () => _changeStatus(context, ref, 'in_progress'),
                   ),
-                ],
-              ),
-            ],
-            if (isAdmin && !_editingHeader) ...[
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  if (sheet.status == 'draft')
-                    AppButton(
-                      label: 'Start (Move to In Progress)',
-                      expand: false,
-                      isLoading: mutationState.isLoading,
-                      onPressed: () => _changeStatus('in_progress'),
-                    ),
-                  if (sheet.status == 'in_progress')
-                    AppButton(
-                      label: 'Complete Sheet',
-                      expand: false,
-                      isLoading: mutationState.isLoading,
-                      onPressed: () => _changeStatus('completed'),
-                    ),
-                ],
-              ),
-            ],
+                if (sheet.status == 'in_progress')
+                  AppButton(
+                    label: 'Complete Sheet',
+                    expand: false,
+                    isLoading: mutationState.isLoading,
+                    onPressed: () => _changeStatus(context, ref, 'completed'),
+                  ),
+              ],
+            ),
           ],
         ),
       ),
@@ -535,10 +668,15 @@ class _ItemCardState extends ConsumerState<_ItemCard> {
                   ),
               ],
             ),
+            if (widget.canEditDelivery || widget.canEditCredit) const SizedBox(height: 10),
             if (widget.canEditDelivery && !_editingDelivery)
               Align(
                 alignment: Alignment.centerLeft,
-                child: TextButton(onPressed: () => setState(() => _editingDelivery = true), child: const Text('Update Delivery')),
+                child: FilledButton.tonalIcon(
+                  onPressed: () => setState(() => _editingDelivery = true),
+                  icon: const Icon(Icons.edit_outlined, size: 16),
+                  label: const Text('Update Delivery'),
+                ),
               ),
             if (_editingDelivery) ...[
               const Divider(),
@@ -600,7 +738,11 @@ class _ItemCardState extends ConsumerState<_ItemCard> {
             if (widget.canEditCredit && !_editingCredit)
               Align(
                 alignment: Alignment.centerLeft,
-                child: TextButton(onPressed: () => setState(() => _editingCredit = true), child: const Text('Update Credit / Udhaar')),
+                child: FilledButton.tonalIcon(
+                  onPressed: () => setState(() => _editingCredit = true),
+                  icon: const Icon(Icons.edit_outlined, size: 16),
+                  label: const Text('Update Credit / Udhaar'),
+                ),
               ),
             if (_editingCredit) ...[
               const Divider(),

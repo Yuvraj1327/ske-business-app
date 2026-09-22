@@ -7,6 +7,7 @@ from app.core.permissions import require_permission
 from app.core.security import CurrentUser, get_current_user
 from app.db.session import get_db
 from app.schemas.settlement import (
+    SettlementItemAddRequest,
     SettlementItemCreditUpdateRequest,
     SettlementItemDeliveryUpdateRequest,
     SettlementItemResponse,
@@ -79,6 +80,21 @@ async def update_settlement_sheet(
     sheet is 'completed'."""
     service = SettlementService(db)
     return await service.update_sheet(sheet_id, payload, current_user)
+
+
+@router.post("/{sheet_id}/items", response_model=SettlementItemResponse, status_code=201)
+async def add_settlement_item(
+    sheet_id: uuid.UUID,
+    payload: SettlementItemAddRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+) -> SettlementItemResponse:
+    """Add one customer row to an already-existing sheet — the assigned
+    Delivery Agent's (or Admin's) way to add customers after creation,
+    since rows are optional at creation time. See
+    SettlementService.add_item for the status/permission gating."""
+    service = SettlementService(db)
+    return await service.add_item(sheet_id, payload, current_user)
 
 
 @router.patch("/{sheet_id}/status", response_model=SettlementSheetDetailResponse)

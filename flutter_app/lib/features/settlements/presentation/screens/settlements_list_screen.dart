@@ -127,7 +127,8 @@ class _SettlementsListScreenState extends ConsumerState<SettlementsListScreen> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                '${Formatters.date(sheet.sheetDate)} · ${sheet.deliveryAgentName} · ${sheet.salesmanName}',
+                                '${Formatters.date(sheet.sheetDate)} · ${sheet.deliveryAgentName} · '
+                                '${sheet.salesmen.map((s) => s.name).join(', ')}',
                                 style: AppTextStyles.bodySecondary,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,

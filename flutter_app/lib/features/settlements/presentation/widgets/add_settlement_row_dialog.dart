@@ -117,6 +117,9 @@ class _AddSettlementRowDialogState extends ConsumerState<_AddSettlementRowDialog
   @override
   Widget build(BuildContext context) {
     final lookupState = ref.watch(customerCodeLookupControllerProvider);
+    final notFound = lookupState.hasError &&
+        lookupState.error is Failure &&
+        (lookupState.error as Failure).code == 'NOT_FOUND';
 
     return AlertDialog(
       title: const Text('Add Customer Row'),
@@ -151,6 +154,20 @@ class _AddSettlementRowDialogState extends ConsumerState<_AddSettlementRowDialog
                 padding: EdgeInsets.only(top: 12),
                 child: Center(child: CircularProgressIndicator()),
               ),
+              // Both paths are offered up front — Admin doesn't have to
+              // search and hit a "not found" first to discover they can
+              // create a new customer here.
+              if (_resolvedCustomer == null)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: () => setState(() => _showCreateNewCustomer = !_showCreateNewCustomer),
+                    icon: Icon(_showCreateNewCustomer ? Icons.search : Icons.person_add_alt_1_outlined, size: 18),
+                    label: Text(
+                      _showCreateNewCustomer ? 'Search an existing customer instead' : 'Or create a new customer',
+                    ),
+                  ),
+                ),
               if (_resolvedCustomer != null) ...[
                 const SizedBox(height: 14),
                 Container(
@@ -192,11 +209,13 @@ class _AddSettlementRowDialogState extends ConsumerState<_AddSettlementRowDialog
                 ),
               ] else if (_showCreateNewCustomer) ...[
                 const SizedBox(height: 14),
-                Text(
-                  "No customer found with this code.",
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 10),
+                if (notFound) ...[
+                  Text(
+                    'No customer found with this code — create one below.',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 10),
+                ],
                 AppTextField(
                   label: 'New Customer Name',
                   controller: _newCustomerNameController,

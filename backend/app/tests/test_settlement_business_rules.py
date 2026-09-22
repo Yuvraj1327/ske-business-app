@@ -5,12 +5,13 @@ test_sale_and_return_calculations.py (mirror an inline DB-dependent
 calculation as a standalone one to verify the math/logic itself)."""
 import uuid
 from decimal import Decimal
+from types import SimpleNamespace
 
 import pytest
 
 from app.core.exceptions import BusinessRuleError, PermissionDeniedError
+from app.models.settlement import SettlementSheet, SettlementSheetItem
 from app.core.security import CurrentUser
-from app.models.settlement import SettlementSheet
 from app.schemas.settlement import SettlementSheetUpdateRequest
 from app.services.settlement_service import _ALLOWED_TRANSITIONS, SettlementService
 
@@ -26,14 +27,28 @@ def _make_user(role_name: str, permissions: set[str], user_id: uuid.UUID | None 
     )
 
 
-def _make_sheet(agent_id: uuid.UUID, salesman_id: uuid.UUID, status: str = "draft") -> SettlementSheet:
-    return SettlementSheet(
+def _make_sheet(agent_id: uuid.UUID, salesman_ids: list[uuid.UUID], status: str = "draft") -> SettlementSheet:
+    sheet = SettlementSheet(
         id=uuid.uuid4(),
         sheet_no="SET-20260922-001",
         delivery_agent_id=agent_id,
-        salesman_id=salesman_id,
         status=status,
     )
+    sheet.salesmen = [SimpleNamespace(id=sid) for sid in salesman_ids]
+    return sheet
+
+
+def _make_item(sheet: SettlementSheet, assigned_salesman_id: uuid.UUID | None = None) -> SettlementSheetItem:
+    item = SettlementSheetItem(
+        id=uuid.uuid4(),
+        settlement_sheet_id=sheet.id,
+        row_no=1,
+        customer_id=uuid.uuid4(),
+        customer_name="Test Customer",
+    )
+    item.sheet = sheet
+    item.customer = SimpleNamespace(assigned_salesman_id=assigned_salesman_id)
+    return item
 
 
 @pytest.fixture
@@ -47,20 +62,20 @@ def service() -> SettlementService:
 # ---------------------------------------------------------------------------
 def test_admin_can_view_any_sheet(service):
     admin = _make_user("admin", {"settlements.manage", "settlements.view_assigned"})
-    sheet = _make_sheet(uuid.uuid4(), uuid.uuid4())
+    sheet = _make_sheet(uuid.uuid4(), [uuid.uuid4()])
     service._check_view_access(sheet, admin)  # does not raise
 
 
 def test_delivery_agent_can_view_their_own_sheet(service):
     agent_id = uuid.uuid4()
     agent = _make_user("delivery_agent", {"settlements.view_assigned"}, user_id=agent_id)
-    sheet = _make_sheet(agent_id, uuid.uuid4())
+    sheet = _make_sheet(agent_id, [uuid.uuid4()])
     service._check_view_access(sheet, agent)  # does not raise
 
 
 def test_delivery_agent_cannot_view_another_agents_sheet(service):
     agent = _make_user("delivery_agent", {"settlements.view_assigned"}, user_id=uuid.uuid4())
-    sheet = _make_sheet(uuid.uuid4(), uuid.uuid4())  # different agent
+    sheet = _make_sheet(uuid.uuid4(), [uuid.uuid4()])  # different agent
     with pytest.raises(PermissionDeniedError):
         service._check_view_access(sheet, agent)
 
@@ -68,7 +83,14 @@ def test_delivery_agent_cannot_view_another_agents_sheet(service):
 def test_salesman_can_view_their_own_sheet(service):
     salesman_id = uuid.uuid4()
     salesman = _make_user("salesman", {"settlements.view_assigned"}, user_id=salesman_id)
-    sheet = _make_sheet(uuid.uuid4(), salesman_id)
+    sheet = _make_sheet(uuid.uuid4(), [salesman_id])
+    service._check_view_access(sheet, salesman)  # does not raise
+
+
+def test_second_salesman_on_a_multi_salesman_sheet_can_view_it(service):
+    salesman_id = uuid.uuid4()
+    salesman = _make_user("salesman", {"settlements.view_assigned"}, user_id=salesman_id)
+    sheet = _make_sheet(uuid.uuid4(), [uuid.uuid4(), salesman_id])
     service._check_view_access(sheet, salesman)  # does not raise
 
 
@@ -78,41 +100,72 @@ def test_salesman_can_view_their_own_sheet(service):
 def test_assigned_agent_can_update_delivery_half(service):
     agent_id = uuid.uuid4()
     agent = _make_user("delivery_agent", {"settlements.view_assigned"}, user_id=agent_id)
-    sheet = _make_sheet(agent_id, uuid.uuid4())
+    sheet = _make_sheet(agent_id, [uuid.uuid4()])
     service._check_agent_access(sheet, agent)  # does not raise
 
 
 def test_assigned_salesman_cannot_update_delivery_half(service):
     salesman_id = uuid.uuid4()
     salesman = _make_user("salesman", {"settlements.view_assigned"}, user_id=salesman_id)
-    sheet = _make_sheet(uuid.uuid4(), salesman_id)
+    sheet = _make_sheet(uuid.uuid4(), [salesman_id])
     with pytest.raises(PermissionDeniedError):
         service._check_agent_access(sheet, salesman)
 
 
 # ---------------------------------------------------------------------------
-# Credit half access — Salesman only, never Agent
+# Credit half access — the customer's OWN assigned salesman only, even on a
+# multi-salesman sheet; falls back to any of the sheet's salesmen if the
+# customer has no assigned salesman.
 # ---------------------------------------------------------------------------
-def test_assigned_salesman_can_update_credit_half(service):
+def test_assigned_salesman_can_update_credit_half_of_their_own_customer(service):
     salesman_id = uuid.uuid4()
     salesman = _make_user("salesman", {"settlements.view_assigned"}, user_id=salesman_id)
-    sheet = _make_sheet(uuid.uuid4(), salesman_id)
-    service._check_salesman_access(sheet, salesman)  # does not raise
+    sheet = _make_sheet(uuid.uuid4(), [salesman_id])
+    item = _make_item(sheet, assigned_salesman_id=salesman_id)
+    service._check_item_salesman_access(item, salesman)  # does not raise
+
+
+def test_other_salesman_on_same_sheet_cannot_update_credit_half_of_someone_elses_customer(service):
+    salesman_id = uuid.uuid4()
+    other_salesman_id = uuid.uuid4()
+    salesman = _make_user("salesman", {"settlements.view_assigned"}, user_id=salesman_id)
+    sheet = _make_sheet(uuid.uuid4(), [salesman_id, other_salesman_id])
+    item = _make_item(sheet, assigned_salesman_id=other_salesman_id)
+    with pytest.raises(PermissionDeniedError):
+        service._check_item_salesman_access(item, salesman)
+
+
+def test_salesman_not_on_the_sheet_at_all_cannot_update_credit_half(service):
+    salesman = _make_user("salesman", {"settlements.view_assigned"}, user_id=uuid.uuid4())
+    sheet = _make_sheet(uuid.uuid4(), [uuid.uuid4()])
+    item = _make_item(sheet, assigned_salesman_id=None)
+    with pytest.raises(PermissionDeniedError):
+        service._check_item_salesman_access(item, salesman)
+
+
+def test_any_sheet_salesman_can_update_credit_half_of_an_unassigned_customer(service):
+    salesman_id = uuid.uuid4()
+    salesman = _make_user("salesman", {"settlements.view_assigned"}, user_id=salesman_id)
+    sheet = _make_sheet(uuid.uuid4(), [salesman_id, uuid.uuid4()])
+    item = _make_item(sheet, assigned_salesman_id=None)
+    service._check_item_salesman_access(item, salesman)  # does not raise
 
 
 def test_assigned_agent_cannot_update_credit_half(service):
     agent_id = uuid.uuid4()
     agent = _make_user("delivery_agent", {"settlements.view_assigned"}, user_id=agent_id)
-    sheet = _make_sheet(agent_id, uuid.uuid4())
+    sheet = _make_sheet(agent_id, [uuid.uuid4()])
+    item = _make_item(sheet, assigned_salesman_id=None)
     with pytest.raises(PermissionDeniedError):
-        service._check_salesman_access(sheet, agent)
+        service._check_item_salesman_access(item, agent)
 
 
 def test_admin_can_update_either_half_of_any_sheet(service):
     admin = _make_user("admin", {"settlements.manage"})
-    sheet = _make_sheet(uuid.uuid4(), uuid.uuid4())
+    sheet = _make_sheet(uuid.uuid4(), [uuid.uuid4()])
+    item = _make_item(sheet, assigned_salesman_id=uuid.uuid4())
     service._check_agent_access(sheet, admin)  # does not raise
-    service._check_salesman_access(sheet, admin)  # does not raise
+    service._check_item_salesman_access(item, admin)  # does not raise
 
 
 # ---------------------------------------------------------------------------
@@ -162,3 +215,24 @@ async def test_non_admin_cannot_update_sheet_header(service):
     agent = _make_user("delivery_agent", {"settlements.view_assigned"})
     with pytest.raises(PermissionDeniedError):
         await service.update_sheet(uuid.uuid4(), SettlementSheetUpdateRequest(pick_sheet_no="PS-1"), agent)
+
+
+# ---------------------------------------------------------------------------
+# Adding a customer row after creation — Agent (or Admin) only, never
+# Salesman; only the permission check runs before any DB access.
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_salesman_cannot_add_a_customer_row():
+    from app.schemas.settlement import SettlementItemAddRequest
+
+    service = SettlementService(db=None)
+    salesman = _make_user("salesman", {"settlements.view_assigned"})
+
+    async def _fake_get_by_id(_sheet_id):
+        return _make_sheet(uuid.uuid4(), [salesman.id])
+
+    service.sheets.get_by_id = _fake_get_by_id
+    with pytest.raises(PermissionDeniedError):
+        await service.add_item(
+            uuid.uuid4(), SettlementItemAddRequest(customer_id=uuid.uuid4()), salesman
+        )

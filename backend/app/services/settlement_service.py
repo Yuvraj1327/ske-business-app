@@ -2,17 +2,21 @@
 Settlement Sheet domain logic.
 
 A Settlement Sheet is a manually-entered record of one Delivery Agent's
-collection route for a given date (one agent + one salesman, multiple
-customers), moved through Draft -> In Progress -> Completed by Admin, with
-the two "halves" of each row filled in by two different people:
+collection route for a given date (one agent + one or more Salesmen,
+customer rows optional at creation), moved through Draft -> In Progress ->
+Completed by Admin, with the two "halves" of each row filled in by two
+different people:
 
   - Delivery half (delivery_status / cash_amount / online_amount /
     cheque_amount / credit_amount / agent_notes) — the assigned Delivery
-    Agent, only while 'in_progress'. The three collected amounts are split
-    by mode since one delivery can be paid across several; credit_amount is
+    Agent, who may also add new customer rows any time before the sheet is
+    'completed' (see add_item). The three collected amounts are split by
+    mode since one delivery can be paid across several; credit_amount is
     whatever's left as credit/udhaar.
-  - Credit/Udhaar half (credit_collected / salesman_notes) — the assigned
-    Salesman, only while 'in_progress'.
+  - Credit/Udhaar half (credit_collected / salesman_notes) — while
+    'in_progress', by whichever of the sheet's Salesmen the row's customer
+    is actually assigned to (see _check_item_salesman_access) — a sheet can
+    have several Salesmen, each only acting on their own customers.
 
 Admin has full access throughout (creates the sheet in 'draft', can edit its
 header/general fields via update_sheet up until it's 'completed', moves it
@@ -39,8 +43,10 @@ from app.models.user import User
 from app.repositories.settlement_repo import SettlementRepository
 from app.schemas.common import money_str
 from app.schemas.settlement import (
+    SettlementItemAddRequest,
     SettlementItemCreditUpdateRequest,
     SettlementItemDeliveryUpdateRequest,
+    SettlementSalesmanRef,
     SettlementSheetCreateRequest,
     SettlementSheetDetailResponse,
     SettlementSheetResponse,
@@ -75,30 +81,39 @@ class SettlementService:
     def _check_view_access(self, sheet: SettlementSheet, current_user: CurrentUser) -> None:
         if self._can_manage(current_user):
             return
-        if current_user.has_permission("settlements.view_assigned") and current_user.id in (
-            sheet.delivery_agent_id,
-            sheet.salesman_id,
+        salesman_ids = {s.id for s in sheet.salesmen}
+        if current_user.has_permission("settlements.view_assigned") and (
+            current_user.id == sheet.delivery_agent_id or current_user.id in salesman_ids
         ):
             return
         raise PermissionDeniedError("You do not have access to this settlement sheet.")
 
     def _check_agent_access(self, sheet: SettlementSheet, current_user: CurrentUser) -> None:
         """Only the sheet's assigned Delivery Agent, or Admin, may update
-        the delivery half of its rows."""
+        the delivery half of its rows (or add a new row)."""
         if self._can_manage(current_user):
             return
         if current_user.has_permission("settlements.view_assigned") and current_user.id == sheet.delivery_agent_id:
             return
         raise PermissionDeniedError("Only the assigned delivery agent can update delivery details for this sheet.")
 
-    def _check_salesman_access(self, sheet: SettlementSheet, current_user: CurrentUser) -> None:
-        """Only the sheet's assigned Salesman, or Admin, may update the
-        Credit/Udhaar half of its rows."""
+    def _check_item_salesman_access(self, item: SettlementSheetItem, current_user: CurrentUser) -> None:
+        """Only the customer's own assigned Salesman (if they're one of the
+        sheet's selected Salesmen), or Admin, may update this row's
+        Credit/Udhaar half — a sheet can have several Salesmen, but each
+        only acts on their own customers. If the customer has no assigned
+        salesman, any of the sheet's Salesmen may act on it (otherwise the
+        row would be unowned and no one could)."""
         if self._can_manage(current_user):
             return
-        if current_user.has_permission("settlements.view_assigned") and current_user.id == sheet.salesman_id:
-            return
-        raise PermissionDeniedError("Only the assigned salesman can update credit/udhaar details for this sheet.")
+        sheet = item.sheet
+        if not current_user.has_permission("settlements.view_assigned"):
+            raise PermissionDeniedError("Only the assigned salesman can update credit/udhaar details for this row.")
+        if current_user.id not in {s.id for s in sheet.salesmen}:
+            raise PermissionDeniedError("Only the assigned salesman can update credit/udhaar details for this row.")
+        assigned_salesman_id = item.customer.assigned_salesman_id if item.customer else None
+        if assigned_salesman_id is not None and current_user.id != assigned_salesman_id:
+            raise PermissionDeniedError("This customer is assigned to a different salesman.")
 
     # ------------------------------------------------------------------
     # Reads
@@ -125,8 +140,6 @@ class SettlementService:
     async def _build_response(self, sheet: SettlementSheet) -> SettlementSheetResponse:
         agent_result = await self.db.execute(select(User).where(User.id == sheet.delivery_agent_id))
         agent = agent_result.scalar_one_or_none()
-        salesman_result = await self.db.execute(select(User).where(User.id == sheet.salesman_id))
-        salesman = salesman_result.scalar_one_or_none()
 
         total_invoice_amount = sum((i.invoice_amount for i in sheet.items), Decimal("0"))
         total_collected = sum(
@@ -143,8 +156,7 @@ class SettlementService:
             sheet_date=sheet.sheet_date,
             delivery_agent_id=sheet.delivery_agent_id,
             delivery_agent_name=agent.full_name if agent else "",
-            salesman_id=sheet.salesman_id,
-            salesman_name=salesman.full_name if salesman else "",
+            salesmen=[SettlementSalesmanRef(id=s.id, name=s.full_name) for s in sheet.salesmen],
             status=sheet.status,
             notes=sheet.notes,
             pick_sheet_no=sheet.pick_sheet_no,
@@ -180,7 +192,9 @@ class SettlementService:
             raise PermissionDeniedError("Only an admin can create a settlement sheet.")
 
         agent = await self._require_user_with_role(payload.delivery_agent_id, "delivery_agent")
-        salesman = await self._require_user_with_role(payload.salesman_id, "salesman")
+        salesmen = [
+            await self._require_user_with_role(sid, "salesman") for sid in dict.fromkeys(payload.salesman_ids)
+        ]
 
         items: list[SettlementSheetItem] = []
         for row_no, item_payload in enumerate(payload.items, start=1):
@@ -205,7 +219,7 @@ class SettlementService:
             sheet_no=sheet_no,
             sheet_date=payload.sheet_date,
             delivery_agent_id=agent.id,
-            salesman_id=salesman.id,
+            salesmen=salesmen,
             status="draft",
             notes=payload.notes,
             pick_sheet_no=payload.pick_sheet_no,
@@ -264,11 +278,12 @@ class SettlementService:
         if payload.delivery_agent_id is not None:
             agent = await self._require_user_with_role(payload.delivery_agent_id, "delivery_agent")
             sheet.delivery_agent_id = agent.id
-        if payload.salesman_id is not None:
-            salesman = await self._require_user_with_role(payload.salesman_id, "salesman")
-            sheet.salesman_id = salesman.id
+        if payload.salesman_ids is not None:
+            sheet.salesmen = [
+                await self._require_user_with_role(sid, "salesman") for sid in dict.fromkeys(payload.salesman_ids)
+            ]
 
-        updates = payload.model_dump(exclude={"delivery_agent_id", "salesman_id"}, exclude_unset=True)
+        updates = payload.model_dump(exclude={"delivery_agent_id", "salesman_ids"}, exclude_unset=True)
         for field, value in updates.items():
             setattr(sheet, field, value)
 
@@ -307,6 +322,42 @@ class SettlementService:
     # ------------------------------------------------------------------
     # Writes — per-row, Agent / Salesman (or Admin)
     # ------------------------------------------------------------------
+    async def add_item(
+        self, sheet_id: uuid.UUID, payload: SettlementItemAddRequest, current_user: CurrentUser
+    ) -> SettlementItemResponse:
+        """Add one customer row to an already-existing sheet — the
+        assigned Delivery Agent (or Admin), any time before the sheet is
+        'completed'. Customer rows are optional at creation; this is how
+        they get added afterwards."""
+        sheet = await self.sheets.get_by_id(sheet_id)
+        if sheet is None:
+            raise NotFoundError("Settlement sheet not found")
+
+        self._check_agent_access(sheet, current_user)
+
+        if sheet.status == "completed":
+            raise BusinessRuleError("Cannot add a customer row to a completed settlement sheet.")
+
+        customer_result = await self.db.execute(select(Customer).where(Customer.id == payload.customer_id))
+        customer = customer_result.scalar_one_or_none()
+        if customer is None:
+            raise ValidationError("Customer not found.", field="customer_id")
+
+        item = SettlementSheetItem(
+            settlement_sheet_id=sheet.id,
+            row_no=len(sheet.items) + 1,
+            customer_id=customer.id,
+            customer_code=customer.external_code,
+            customer_name=customer.name,
+            invoice_amount=payload.invoice_amount,
+            credit_amount=payload.credit_amount,
+        )
+        self.db.add(item)
+        await self.db.commit()
+        await self.db.refresh(item)
+        item.customer = customer
+        return SettlementItemResponse.from_model(item)
+
     async def update_item_delivery(
         self, item_id: uuid.UUID, payload: SettlementItemDeliveryUpdateRequest, current_user: CurrentUser
     ) -> SettlementItemResponse:
@@ -367,7 +418,7 @@ class SettlementService:
         if item is None:
             raise NotFoundError("Settlement sheet row not found")
 
-        self._check_salesman_access(item.sheet, current_user)
+        self._check_item_salesman_access(item, current_user)
 
         if item.sheet.status != "in_progress":
             raise BusinessRuleError(
