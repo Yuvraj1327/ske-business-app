@@ -29,15 +29,11 @@ class _CreateSettlementScreenState extends ConsumerState<CreateSettlementScreen>
   String? _deliveryAgentId;
   String? _salesmanId;
   final _notesController = TextEditingController();
-  final _pickSheetNoController = TextEditingController();
-  final _pickSheetValueController = TextEditingController(text: '0');
   final List<DraftSettlementRow> _rows = [];
 
   @override
   void dispose() {
     _notesController.dispose();
-    _pickSheetNoController.dispose();
-    _pickSheetValueController.dispose();
     super.dispose();
   }
 
@@ -75,8 +71,6 @@ class _CreateSettlementScreenState extends ConsumerState<CreateSettlementScreen>
           deliveryAgentId: _deliveryAgentId!,
           salesmanId: _salesmanId!,
           notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
-          pickSheetNo: _pickSheetNoController.text.trim().isEmpty ? null : _pickSheetNoController.text.trim(),
-          pickSheetValue: double.tryParse(_pickSheetValueController.text.trim()) ?? 0,
           items: _rows,
         );
 
@@ -142,14 +136,6 @@ class _CreateSettlementScreenState extends ConsumerState<CreateSettlementScreen>
                           .toList(),
                       onChanged: (v) => setState(() => _salesmanId = v),
                     ),
-                  ),
-                  const SizedBox(height: 14),
-                  AppTextField(label: 'Pick Sheet No. (optional)', controller: _pickSheetNoController),
-                  const SizedBox(height: 14),
-                  AppTextField(
-                    label: 'Pick Sheet Value',
-                    controller: _pickSheetValueController,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   ),
                   const SizedBox(height: 14),
                   AppTextField(label: 'Notes (optional)', controller: _notesController, maxLines: 2),

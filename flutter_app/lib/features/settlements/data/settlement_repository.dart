@@ -29,8 +29,6 @@ class SettlementRepository {
     required String deliveryAgentId,
     required String salesmanId,
     String? notes,
-    String? pickSheetNo,
-    double pickSheetValue = 0,
     required List<DraftSettlementRow> items,
   }) async {
     final response = await _apiClient.post<Map<String, dynamic>>(
@@ -40,8 +38,6 @@ class SettlementRepository {
         'delivery_agent_id': deliveryAgentId,
         'salesman_id': salesmanId,
         if (notes != null && notes.isNotEmpty) 'notes': notes,
-        if (pickSheetNo != null && pickSheetNo.isNotEmpty) 'pick_sheet_no': pickSheetNo,
-        'pick_sheet_value': pickSheetValue.toStringAsFixed(2),
         'items': items
             .map((row) => {
                   'customer_id': row.customerId,
@@ -94,55 +90,6 @@ class SettlementRepository {
       },
     );
     return SettlementSheetItem.fromJson(response.data!);
-  }
-
-  /// The assigned Delivery Agent's (or Admin's) route-level totals —
-  /// Returns / Damage Return / Discount / Cash / Online/Bank / Cheque.
-  Future<SettlementSheetDetail> updateAgentSummary({
-    required String sheetId,
-    required double returnsAmount,
-    required double damageReturnAmount,
-    required double discountAmount,
-    required double cashAmount,
-    required double onlineAmount,
-    required double chequeAmount,
-  }) async {
-    final response = await _apiClient.patch<Map<String, dynamic>>(
-      '/settlements/$sheetId/agent-summary',
-      data: {
-        'returns_amount': returnsAmount.toStringAsFixed(2),
-        'damage_return_amount': damageReturnAmount.toStringAsFixed(2),
-        'discount_amount': discountAmount.toStringAsFixed(2),
-        'cash_amount': cashAmount.toStringAsFixed(2),
-        'online_amount': onlineAmount.toStringAsFixed(2),
-        'cheque_amount': chequeAmount.toStringAsFixed(2),
-      },
-    );
-    return SettlementSheetDetail.fromJson(response.data!);
-  }
-
-  /// The assigned Salesman's (or Admin's) sheet-level Credit/Udhaar total.
-  Future<SettlementSheetDetail> updateSalesmanSummary({
-    required String sheetId,
-    required double creditBillsAmount,
-  }) async {
-    final response = await _apiClient.patch<Map<String, dynamic>>(
-      '/settlements/$sheetId/salesman-summary',
-      data: {'credit_bills_amount': creditBillsAmount.toStringAsFixed(2)},
-    );
-    return SettlementSheetDetail.fromJson(response.data!);
-  }
-
-  /// Admin-only: the Old Short carry-forward figure.
-  Future<SettlementSheetDetail> updateAdminSummary({
-    required String sheetId,
-    required double oldShortAmount,
-  }) async {
-    final response = await _apiClient.patch<Map<String, dynamic>>(
-      '/settlements/$sheetId/admin-summary',
-      data: {'old_short_amount': oldShortAmount.toStringAsFixed(2)},
-    );
-    return SettlementSheetDetail.fromJson(response.data!);
   }
 
   // Same manual zero-padded formatting as PaymentRepository._formatDate —

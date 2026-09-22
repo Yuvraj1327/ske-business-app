@@ -6,11 +6,8 @@ import pytest
 from pydantic import ValidationError as PydanticValidationError
 
 from app.schemas.settlement import (
-    SettlementAdminSummaryUpdateRequest,
-    SettlementAgentSummaryUpdateRequest,
     SettlementItemCreditUpdateRequest,
     SettlementItemDeliveryUpdateRequest,
-    SettlementSalesmanSummaryUpdateRequest,
     SettlementSheetCreateRequest,
     SettlementStatusUpdateRequest,
 )
@@ -74,40 +71,3 @@ def test_credit_collected_cannot_be_negative():
 
     valid = SettlementItemCreditUpdateRequest(credit_collected="0")
     assert valid.credit_collected == 0
-
-
-def test_settlement_sheet_accepts_pick_sheet_no_and_value():
-    payload = SettlementSheetCreateRequest(
-        sheet_date="2026-09-22",
-        delivery_agent_id=uuid.uuid4(),
-        salesman_id=uuid.uuid4(),
-        pick_sheet_no="6377",
-        pick_sheet_value="41186.00",
-        items=[{"customer_id": uuid.uuid4(), "invoice_amount": "500.00"}],
-    )
-    assert payload.pick_sheet_no == "6377"
-    assert payload.pick_sheet_value == 41186
-
-
-def test_agent_summary_amounts_cannot_be_negative():
-    with pytest.raises(PydanticValidationError):
-        SettlementAgentSummaryUpdateRequest(cash_amount="-1")
-
-    valid = SettlementAgentSummaryUpdateRequest(cash_amount="16640", online_amount="8611")
-    assert valid.cash_amount == 16640
-
-
-def test_salesman_summary_credit_bills_cannot_be_negative():
-    with pytest.raises(PydanticValidationError):
-        SettlementSalesmanSummaryUpdateRequest(credit_bills_amount="-1")
-
-    valid = SettlementSalesmanSummaryUpdateRequest(credit_bills_amount="13086")
-    assert valid.credit_bills_amount == 13086
-
-
-def test_admin_summary_old_short_cannot_be_negative():
-    with pytest.raises(PydanticValidationError):
-        SettlementAdminSummaryUpdateRequest(old_short_amount="-1")
-
-    valid = SettlementAdminSummaryUpdateRequest(old_short_amount="50")
-    assert valid.old_short_amount == 50

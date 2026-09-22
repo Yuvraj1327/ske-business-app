@@ -35,11 +35,8 @@ from app.models.user import User
 from app.repositories.settlement_repo import SettlementRepository
 from app.schemas.common import money_str
 from app.schemas.settlement import (
-    SettlementAdminSummaryUpdateRequest,
-    SettlementAgentSummaryUpdateRequest,
     SettlementItemCreditUpdateRequest,
     SettlementItemDeliveryUpdateRequest,
-    SettlementSalesmanSummaryUpdateRequest,
     SettlementSheetCreateRequest,
     SettlementSheetDetailResponse,
     SettlementSheetResponse,
@@ -133,17 +130,6 @@ class SettlementService:
         not_delivered = sum(1 for i in sheet.items if i.delivery_status == "not_delivered")
         pending = sum(1 for i in sheet.items if i.delivery_status == "pending")
 
-        # Route-level reconciliation — pure arithmetic over the sheet's own
-        # totals, same spirit as the row summary above. Day Short is what's
-        # missing versus what should have been collected; Total Balance
-        # folds in any carried-forward shortfall from a prior sheet.
-        expected_collectible = (
-            sheet.pick_sheet_value - sheet.returns_amount - sheet.damage_return_amount - sheet.discount_amount
-        )
-        actual_collected = sheet.cash_amount + sheet.online_amount + sheet.cheque_amount + sheet.credit_bills_amount
-        day_short = expected_collectible - actual_collected
-        total_balance = day_short + sheet.old_short_amount
-
         return SettlementSheetResponse(
             id=sheet.id,
             sheet_no=sheet.sheet_no,
@@ -154,18 +140,6 @@ class SettlementService:
             salesman_name=salesman.full_name if salesman else "",
             status=sheet.status,
             notes=sheet.notes,
-            pick_sheet_no=sheet.pick_sheet_no,
-            pick_sheet_value=money_str(sheet.pick_sheet_value),
-            returns_amount=money_str(sheet.returns_amount),
-            damage_return_amount=money_str(sheet.damage_return_amount),
-            discount_amount=money_str(sheet.discount_amount),
-            cash_amount=money_str(sheet.cash_amount),
-            online_amount=money_str(sheet.online_amount),
-            cheque_amount=money_str(sheet.cheque_amount),
-            credit_bills_amount=money_str(sheet.credit_bills_amount),
-            old_short_amount=money_str(sheet.old_short_amount),
-            day_short=money_str(day_short),
-            total_balance=money_str(total_balance),
             summary=SettlementSheetSummary(
                 total_items=len(sheet.items),
                 delivered=delivered,
@@ -217,8 +191,6 @@ class SettlementService:
             salesman_id=salesman.id,
             status="draft",
             notes=payload.notes,
-            pick_sheet_no=payload.pick_sheet_no,
-            pick_sheet_value=payload.pick_sheet_value,
             created_by=current_user.id,
         )
         sheet.items = items
@@ -341,70 +313,3 @@ class SettlementService:
         await self.db.commit()
         await self.db.refresh(item)
         return SettlementItemResponse.from_model(item)
-
-    # ------------------------------------------------------------------
-    # Writes — sheet-level route totals (the paper sheet's left column)
-    # ------------------------------------------------------------------
-    async def update_agent_summary(
-        self, sheet_id: uuid.UUID, payload: SettlementAgentSummaryUpdateRequest, current_user: CurrentUser
-    ) -> SettlementSheetDetailResponse:
-        sheet = await self.sheets.get_by_id(sheet_id)
-        if sheet is None:
-            raise NotFoundError("Settlement sheet not found")
-
-        self._check_agent_access(sheet, current_user)
-
-        if sheet.status != "in_progress":
-            raise BusinessRuleError(
-                "Route totals can only be updated while the sheet is 'in_progress'."
-            )
-
-        sheet.returns_amount = payload.returns_amount
-        sheet.damage_return_amount = payload.damage_return_amount
-        sheet.discount_amount = payload.discount_amount
-        sheet.cash_amount = payload.cash_amount
-        sheet.online_amount = payload.online_amount
-        sheet.cheque_amount = payload.cheque_amount
-
-        await self.sheets.save(sheet)
-        await self.db.commit()
-        return await self.get_sheet(sheet_id, current_user)
-
-    async def update_salesman_summary(
-        self, sheet_id: uuid.UUID, payload: SettlementSalesmanSummaryUpdateRequest, current_user: CurrentUser
-    ) -> SettlementSheetDetailResponse:
-        sheet = await self.sheets.get_by_id(sheet_id)
-        if sheet is None:
-            raise NotFoundError("Settlement sheet not found")
-
-        self._check_salesman_access(sheet, current_user)
-
-        if sheet.status != "in_progress":
-            raise BusinessRuleError(
-                "Credit/Udhaar totals can only be updated while the sheet is 'in_progress'."
-            )
-
-        sheet.credit_bills_amount = payload.credit_bills_amount
-
-        await self.sheets.save(sheet)
-        await self.db.commit()
-        return await self.get_sheet(sheet_id, current_user)
-
-    async def update_admin_summary(
-        self, sheet_id: uuid.UUID, payload: SettlementAdminSummaryUpdateRequest, current_user: CurrentUser
-    ) -> SettlementSheetDetailResponse:
-        if not current_user.has_permission("settlements.manage"):
-            raise PermissionDeniedError("Only an admin can update the Old Short carry-forward figure.")
-
-        sheet = await self.sheets.get_by_id(sheet_id)
-        if sheet is None:
-            raise NotFoundError("Settlement sheet not found")
-
-        if sheet.status == "completed":
-            raise BusinessRuleError("Cannot update a completed settlement sheet.")
-
-        sheet.old_short_amount = payload.old_short_amount
-
-        await self.sheets.save(sheet)
-        await self.db.commit()
-        return await self.get_sheet(sheet_id, current_user)

@@ -97,8 +97,6 @@ class SettlementMutationController extends AsyncNotifier<void> {
     required String deliveryAgentId,
     required String salesmanId,
     String? notes,
-    String? pickSheetNo,
-    double pickSheetValue = 0,
     required List<DraftSettlementRow> items,
   }) async {
     state = const AsyncLoading();
@@ -108,8 +106,6 @@ class SettlementMutationController extends AsyncNotifier<void> {
         deliveryAgentId: deliveryAgentId,
         salesmanId: salesmanId,
         notes: notes,
-        pickSheetNo: pickSheetNo,
-        pickSheetValue: pickSheetValue,
         items: items,
       );
       ref.invalidate(settlementsListProvider);
@@ -154,38 +150,6 @@ class SettlementMutationController extends AsyncNotifier<void> {
   }) =>
       _run(
         () => _repo.updateItemCredit(itemId: itemId, creditCollected: creditCollected, salesmanNotes: salesmanNotes),
-        sheetId: sheetId,
-      );
-
-  Future<bool> updateAgentSummary({
-    required String sheetId,
-    required double returnsAmount,
-    required double damageReturnAmount,
-    required double discountAmount,
-    required double cashAmount,
-    required double onlineAmount,
-    required double chequeAmount,
-  }) =>
-      _run(
-        () => _repo.updateAgentSummary(
-          sheetId: sheetId,
-          returnsAmount: returnsAmount,
-          damageReturnAmount: damageReturnAmount,
-          discountAmount: discountAmount,
-          cashAmount: cashAmount,
-          onlineAmount: onlineAmount,
-          chequeAmount: chequeAmount,
-        ),
-        sheetId: sheetId,
-      );
-
-  Future<bool> updateSalesmanSummary({required String sheetId, required double creditBillsAmount}) => _run(
-        () => _repo.updateSalesmanSummary(sheetId: sheetId, creditBillsAmount: creditBillsAmount),
-        sheetId: sheetId,
-      );
-
-  Future<bool> updateAdminSummary({required String sheetId, required double oldShortAmount}) => _run(
-        () => _repo.updateAdminSummary(sheetId: sheetId, oldShortAmount: oldShortAmount),
         sheetId: sheetId,
       );
 
