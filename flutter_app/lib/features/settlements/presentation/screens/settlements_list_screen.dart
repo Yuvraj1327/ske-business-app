@@ -52,7 +52,7 @@ class _SettlementsListScreenState extends ConsumerState<SettlementsListScreen> {
         children: [
           Row(
             children: [
-              Text('Settlements', style: AppTextStyles.heading1),
+              const Text('Settlements', style: AppTextStyles.heading1),
               const Spacer(),
               if (canCreate)
                 FilledButton.icon(

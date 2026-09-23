@@ -50,7 +50,7 @@ class ExpensesListScreen extends ConsumerWidget {
         children: [
           Row(
             children: [
-              Expanded(
+              const Expanded(
                 child: Text('Expenses', style: AppTextStyles.heading1, overflow: TextOverflow.ellipsis),
               ),
               const SizedBox(width: 12),
@@ -82,7 +82,7 @@ class ExpensesListScreen extends ConsumerWidget {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text('Total (active)', style: AppTextStyles.bodySecondary),
+                            const Text('Total (active)', style: AppTextStyles.bodySecondary),
                             Text(
                               Formatters.currency(expensePage.totalAmount),
                               style: AppTextStyles.heading3,

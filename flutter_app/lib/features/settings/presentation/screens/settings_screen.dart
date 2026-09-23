@@ -8,7 +8,6 @@ import '../../../../core/auth/auth_state.dart';
 import '../../../../core/theme/theme_mode_provider.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/confirm_dialog.dart';
-import '../../../auth/data/auth_repository.dart';
 import '../widgets/reset_data_dialog.dart';
 
 /// Settings — available to both Admin and Salesman/Delivery Agent alike
@@ -76,10 +75,10 @@ class SettingsScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
+            const Row(
               children: [
-                const CompanyLogoMark(size: 40),
-                const SizedBox(width: 12),
+                CompanyLogoMark(size: 40),
+                SizedBox(width: 12),
                 Text('Settings', style: AppTextStyles.heading1),
               ],
             ),
@@ -105,7 +104,7 @@ class SettingsScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Theme', style: AppTextStyles.bodySecondary),
+                    const Text('Theme', style: AppTextStyles.bodySecondary),
                     const SizedBox(height: 10),
                     SegmentedButton<ThemeMode>(
                       segments: const [

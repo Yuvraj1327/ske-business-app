@@ -44,18 +44,6 @@ class DeliveryDashboardView extends ConsumerWidget {
     }
   }
 
-  Color _picklistItemStatusColor(String status) {
-    switch (status) {
-      case 'cash':
-      case 'online':
-        return AppColors.success;
-      case 'credit':
-        return AppColors.error;
-      default:
-        return AppColors.warning;
-    }
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final customersAsync = ref.watch(customersListProvider);
@@ -68,7 +56,7 @@ class DeliveryDashboardView extends ConsumerWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('My Picklists', style: AppTextStyles.heading3),
+            const Text('My Picklists', style: AppTextStyles.heading3),
             TextButton(onPressed: () => context.go('/picklists'), child: const Text('View all')),
           ],
         ),
@@ -130,7 +118,7 @@ class DeliveryDashboardView extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 20),
-        Text('Assigned Deliveries', style: AppTextStyles.heading3),
+        const Text('Assigned Deliveries', style: AppTextStyles.heading3),
         const SizedBox(height: 8),
         salesAsync.when(
           loading: () => const Padding(padding: EdgeInsets.only(top: 24), child: LoadingView()),

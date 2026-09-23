@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/errors/failure.dart';
-import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/widgets/error_view.dart';
@@ -101,7 +100,7 @@ class _CreateReturnScreenState extends ConsumerState<CreateReturnScreen> {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text('Create Return', style: AppTextStyles.heading1),
+              const Text('Create Return', style: AppTextStyles.heading1),
               Text(
                 '${sale.invoice?.invoiceNumber ?? 'Sale'} · ${sale.customerName}',
                 style: AppTextStyles.bodySecondary,

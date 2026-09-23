@@ -7,7 +7,6 @@ import '../../../../core/errors/failure.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/error_view.dart';
 import '../../../../core/widgets/loading_view.dart';
-import '../../../reports/domain/report_models.dart';
 import '../../../reports/presentation/providers/report_providers.dart';
 
 /// Tapping "Payments Received" on the dashboard opens this — a breakdown of
@@ -102,9 +101,9 @@ class _PaymentsBreakdownSheet extends ConsumerWidget {
                 decoration: BoxDecoration(color: AppColors.divider, borderRadius: BorderRadius.circular(2)),
               ),
             ),
-            Text('Payments Received — Breakdown', style: AppTextStyles.heading2),
+            const Text('Payments Received — Breakdown', style: AppTextStyles.heading2),
             const SizedBox(height: 4),
-            Text('How much came in by each collection method', style: AppTextStyles.bodySecondary),
+            const Text('How much came in by each collection method', style: AppTextStyles.bodySecondary),
             const SizedBox(height: 16),
             reportAsync.when(
               loading: () => const Padding(padding: EdgeInsets.symmetric(vertical: 24), child: LoadingView()),

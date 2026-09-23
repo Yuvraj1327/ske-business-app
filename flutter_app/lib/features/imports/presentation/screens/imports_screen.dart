@@ -170,7 +170,7 @@ class _ImportsScreenState extends ConsumerState<ImportsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('Excel Import', style: AppTextStyles.heading1),
+          const Text('Excel Import', style: AppTextStyles.heading1),
           const SizedBox(height: 16),
           Card(
             child: Padding(
@@ -178,16 +178,16 @@ class _ImportsScreenState extends ConsumerState<ImportsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Delivery Picklist Import', style: AppTextStyles.heading3),
+                  const Text('Delivery Picklist Import', style: AppTextStyles.heading3),
                   const SizedBox(height: 8),
-                  Text(
+                  const Text(
                     'Accepts the delivery agent\'s picklist file exactly as exported: Picklist No / '
                     'Delivery agent / PSR Route header, then No., Invoice Number, Customer Code, '
                     'Customer Name, Sales man, Amount Payable columns.',
                     style: AppTextStyles.caption,
                   ),
                   const SizedBox(height: 14),
-                  Text('Delivery Agent', style: AppTextStyles.bodySecondary),
+                  const Text('Delivery Agent', style: AppTextStyles.bodySecondary),
                   const SizedBox(height: 6),
                   Consumer(
                     builder: (context, ref, _) {
@@ -223,7 +223,7 @@ class _ImportsScreenState extends ConsumerState<ImportsScreen> {
             ),
           ),
           const SizedBox(height: 20),
-          Text('Import History', style: AppTextStyles.heading3),
+          const Text('Import History', style: AppTextStyles.heading3),
           const SizedBox(height: 8),
           Expanded(
             child: jobsAsync.when(

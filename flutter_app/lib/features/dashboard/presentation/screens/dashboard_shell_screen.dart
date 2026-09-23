@@ -93,7 +93,7 @@ class _DashboardHeader extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Welcome back,', style: AppTextStyles.bodySecondary),
+                const Text('Welcome back,', style: AppTextStyles.bodySecondary),
                 Text(fullName, style: AppTextStyles.heading1.copyWith(fontSize: 22)),
               ],
             ),
@@ -282,7 +282,7 @@ class _RecentActivitySection extends ConsumerWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('Recent Activity', style: AppTextStyles.heading3),
+            const Text('Recent Activity', style: AppTextStyles.heading3),
             TextButton(onPressed: () => context.go('/sales'), child: const Text('View all')),
           ],
         ),

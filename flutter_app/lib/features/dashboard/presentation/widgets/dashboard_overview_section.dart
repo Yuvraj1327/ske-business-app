@@ -32,7 +32,7 @@ class DashboardOverviewSection extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Overview', style: AppTextStyles.heading3),
+            const Text('Overview', style: AppTextStyles.heading3),
             const SizedBox(height: 14),
             for (var i = 0; i < rows.length; i++) ...[
               _buildRow(context, rows[i], maxValue),

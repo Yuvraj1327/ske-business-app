@@ -92,7 +92,7 @@ class SaleDetailScreen extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Items', style: AppTextStyles.heading3),
+                        const Text('Items', style: AppTextStyles.heading3),
                         const Divider(),
                         ...sale.items.map(
                           (item) => Padding(

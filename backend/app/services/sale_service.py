@@ -86,9 +86,14 @@ class SaleService:
         sale_items: list[SaleItem] = []
         subtotal = Decimal("0")
 
+        product_ids = {item.product_id for item in payload.items}
+        products_by_id: dict[uuid.UUID, Product] = {}
+        if product_ids:
+            products_result = await self.db.execute(select(Product).where(Product.id.in_(product_ids)))
+            products_by_id = {p.id: p for p in products_result.scalars().all()}
+
         for item in payload.items:
-            product_result = await self.db.execute(select(Product).where(Product.id == item.product_id))
-            product = product_result.scalar_one_or_none()
+            product = products_by_id.get(item.product_id)
             if product is None or not product.is_active:
                 raise ValidationError(f"Product {item.product_id} does not exist or is inactive.", field="items")
 

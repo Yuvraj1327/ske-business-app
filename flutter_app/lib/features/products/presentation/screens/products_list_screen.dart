@@ -40,7 +40,7 @@ class _ProductsListScreenState extends ConsumerState<ProductsListScreen> {
         children: [
           Row(
             children: [
-              Expanded(
+              const Expanded(
                 child: Text('Products', style: AppTextStyles.heading1, overflow: TextOverflow.ellipsis),
               ),
               const SizedBox(width: 12),
@@ -71,33 +71,70 @@ class _ProductsListScreenState extends ConsumerState<ProductsListScreen> {
                 if (page.items.isEmpty) {
                   return const EmptyStateView(message: 'No products found.', icon: Icons.inventory_2_outlined);
                 }
-                return ListView.separated(
-                  itemCount: page.items.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
-                  itemBuilder: (context, index) {
-                    final product = page.items[index];
-                    return ListTile(
-                      title: Text(product.name, overflow: TextOverflow.ellipsis),
-                      subtitle: Text(
-                        '${Formatters.currency(product.defaultPrice)} / ${product.unit}${product.sku != null ? ' · SKU: ${product.sku}' : ''}',
-                        overflow: TextOverflow.ellipsis,
+                return Column(
+                  children: [
+                    Expanded(
+                      child: ListView.separated(
+                        itemCount: page.items.length,
+                        separatorBuilder: (_, __) => const Divider(height: 1),
+                        itemBuilder: (context, index) {
+                          final product = page.items[index];
+                          return ListTile(
+                            title: Text(product.name, overflow: TextOverflow.ellipsis),
+                            subtitle: Text(
+                              '${Formatters.currency(product.defaultPrice)} / ${product.unit}${product.sku != null ? ' · SKU: ${product.sku}' : ''}',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                StatusBadge(
+                                  label: product.isActive ? 'Active' : 'Inactive',
+                                  color: product.isActive ? AppColors.success : AppColors.statusCancelled,
+                                ),
+                                const SizedBox(width: 8),
+                                IconButton(
+                                  icon: const Icon(Icons.edit_outlined, size: 20),
+                                  onPressed: () => showProductFormDialog(context, existingProduct: product),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
                       ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          StatusBadge(
-                            label: product.isActive ? 'Active' : 'Inactive',
-                            color: product.isActive ? AppColors.success : AppColors.statusCancelled,
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${page.total} product(s) · Page ${page.page} of ${page.totalPages}',
+                            style: AppTextStyles.caption,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          const SizedBox(width: 8),
-                          IconButton(
-                            icon: const Icon(Icons.edit_outlined, size: 20),
-                            onPressed: () => showProductFormDialog(context, existingProduct: product),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
+                        ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.chevron_left),
+                              onPressed: page.page > 1
+                                  ? () => ref.read(productsFilterProvider.notifier).state =
+                                      filter.copyWith(page: page.page - 1)
+                                  : null,
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.chevron_right),
+                              onPressed: page.hasNextPage
+                                  ? () => ref.read(productsFilterProvider.notifier).state =
+                                      filter.copyWith(page: page.page + 1)
+                                  : null,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
                 );
               },
             ),

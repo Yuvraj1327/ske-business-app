@@ -75,13 +75,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       children: [
                         const Center(child: CompanyLogoMark(size: 64)),
                         const SizedBox(height: 24),
-                        Text(
+                        const Text(
                           'Sai Krishna Enterprises',
                           textAlign: TextAlign.center,
                           style: AppTextStyles.heading1,
                         ),
                         const SizedBox(height: 4),
-                        Text(
+                        const Text(
                           'Business Management',
                           textAlign: TextAlign.center,
                           style: AppTextStyles.bodySecondary,

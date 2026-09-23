@@ -27,7 +27,7 @@ class TransactionsListScreen extends ConsumerWidget {
         children: [
           Row(
             children: [
-              Text('Cash / UPI / Bank', style: AppTextStyles.heading1),
+              const Text('Cash / UPI / Bank', style: AppTextStyles.heading1),
               const Spacer(),
               ElevatedButton.icon(
                 icon: const Icon(Icons.add, size: 18),

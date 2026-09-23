@@ -18,6 +18,7 @@ class CompanyLogoMark extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final devicePixelSize = (size * MediaQuery.devicePixelRatioOf(context)).round();
 
     final mark = ClipRRect(
       borderRadius: BorderRadius.circular(size * 0.22),
@@ -26,6 +27,8 @@ class CompanyLogoMark extends StatelessWidget {
         width: size,
         height: size,
         fit: BoxFit.cover,
+        cacheWidth: devicePixelSize,
+        cacheHeight: devicePixelSize,
         errorBuilder: (context, error, stackTrace) => Container(
           width: size,
           height: size,

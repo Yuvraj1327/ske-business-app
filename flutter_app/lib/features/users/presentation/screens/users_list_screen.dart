@@ -66,7 +66,7 @@ class _UsersListScreenState extends ConsumerState<UsersListScreen> {
         children: [
           Row(
             children: [
-              Expanded(
+              const Expanded(
                 child: Text('Users', style: AppTextStyles.heading1, overflow: TextOverflow.ellipsis),
               ),
               const SizedBox(width: 12),

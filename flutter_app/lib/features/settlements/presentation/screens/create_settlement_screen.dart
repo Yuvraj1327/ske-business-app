@@ -129,14 +129,14 @@ class _CreateSettlementScreenState extends ConsumerState<CreateSettlementScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('New Settlement Sheet', style: AppTextStyles.heading1),
+          const Text('New Settlement Sheet', style: AppTextStyles.heading1),
           const SizedBox(height: 16),
           Expanded(
             child: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _SectionHeader(title: 'Basic Details'),
+                  const _SectionHeader(title: 'Basic Details'),
                   const SizedBox(height: 10),
                   _SectionCard(
                     children: [
@@ -163,7 +163,7 @@ class _CreateSettlementScreenState extends ConsumerState<CreateSettlementScreen>
                       const SizedBox(height: 14),
                       Text('PSR / Salesman', style: Theme.of(context).textTheme.labelLarge),
                       const SizedBox(height: 4),
-                      Text(
+                      const Text(
                         'Select one or more — each will only manage their own customers\' credit/udhaar.',
                         style: AppTextStyles.caption,
                       ),
@@ -208,7 +208,7 @@ class _CreateSettlementScreenState extends ConsumerState<CreateSettlementScreen>
                     ],
                   ),
                   const SizedBox(height: 24),
-                  _SectionHeader(
+                  const _SectionHeader(
                     title: 'Settlement Summary',
                     subtitle: 'Optional — can be filled in now or later, anytime before the sheet is completed.',
                   ),
@@ -278,8 +278,8 @@ class _CreateSettlementScreenState extends ConsumerState<CreateSettlementScreen>
                   ),
                   const SizedBox(height: 8),
                   if (_rows.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 4),
                       child: Text('No rows yet. Add a customer by their Code.', style: AppTextStyles.bodySecondary),
                     )
                   else

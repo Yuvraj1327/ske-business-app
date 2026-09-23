@@ -4,7 +4,6 @@ from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.schemas.common import money_str
 
 
 class PaymentCreateRequest(BaseModel):

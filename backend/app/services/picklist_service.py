@@ -30,7 +30,7 @@ from app.core.security import CurrentUser
 from app.models.customer import Customer
 from app.models.invoice import Invoice
 from app.models.payment import Payment
-from app.models.picklist import Picklist, PicklistItem
+from app.models.picklist import Picklist
 from app.models.product import Product
 from app.models.sale import Sale, SaleItem
 from app.models.user import User
@@ -138,7 +138,14 @@ class PicklistService:
 
         scoped_agent_id = None if self._can_view_all(current_user) else current_user.id
         items, total = await self.picklists.list_picklists(pagination, scoped_agent_id)
-        responses = [await self._build_response(p) for p in items]
+
+        agent_ids = {p.delivery_agent_id for p in items}
+        agents_by_id: dict[uuid.UUID, User] = {}
+        if agent_ids:
+            agents_result = await self.db.execute(select(User).where(User.id.in_(agent_ids)))
+            agents_by_id = {u.id: u for u in agents_result.scalars().all()}
+
+        responses = [await self._build_response(p, agents_by_id) for p in items]
         return responses, total
 
     async def get_picklist(self, picklist_id: uuid.UUID, current_user: CurrentUser) -> PicklistDetailResponse:
@@ -158,9 +165,14 @@ class PicklistService:
             return
         raise PermissionDeniedError("You do not have access to this picklist.")
 
-    async def _build_response(self, picklist: Picklist) -> PicklistResponse:
-        agent_result = await self.db.execute(select(User).where(User.id == picklist.delivery_agent_id))
-        agent = agent_result.scalar_one_or_none()
+    async def _build_response(
+        self, picklist: Picklist, agents_by_id: dict[uuid.UUID, User] | None = None
+    ) -> PicklistResponse:
+        if agents_by_id is not None:
+            agent = agents_by_id.get(picklist.delivery_agent_id)
+        else:
+            agent_result = await self.db.execute(select(User).where(User.id == picklist.delivery_agent_id))
+            agent = agent_result.scalar_one_or_none()
 
         counts = {"pending": 0, "cash": 0, "online": 0, "credit": 0}
         for item in picklist.items:

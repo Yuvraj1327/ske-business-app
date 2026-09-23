@@ -23,7 +23,7 @@ class SalesmenListScreen extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('Salesmen', style: AppTextStyles.heading1),
+          const Text('Salesmen', style: AppTextStyles.heading1),
           const SizedBox(height: 16),
           Expanded(
             child: salesmenAsync.when(

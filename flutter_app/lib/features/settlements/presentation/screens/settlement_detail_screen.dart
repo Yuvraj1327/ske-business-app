@@ -97,7 +97,7 @@ class _SettlementDetailScreenState extends ConsumerState<SettlementDetailScreen>
                 const SizedBox(height: 24),
                 Row(
                   children: [
-                    Text('Customer-wise Details', style: AppTextStyles.heading3),
+                    const Text('Customer-wise Details', style: AppTextStyles.heading3),
                     const Spacer(),
                     if (canAddCustomer)
                       FilledButton.tonalIcon(
@@ -179,7 +179,7 @@ class _BasicDetailsCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Basic Details', style: AppTextStyles.heading3),
+            const Text('Basic Details', style: AppTextStyles.heading3),
             const SizedBox(height: 10),
             Row(
               children: [
@@ -316,7 +316,7 @@ class _SettlementSummaryCardState extends ConsumerState<_SettlementSummaryCard> 
           children: [
             Row(
               children: [
-                Text('Settlement Summary', style: AppTextStyles.heading3),
+                const Text('Settlement Summary', style: AppTextStyles.heading3),
                 const Spacer(),
                 if (canEdit && !_editing)
                   IconButton(
@@ -446,13 +446,13 @@ class _FinalReviewSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     if (!isAdmin || sheet.status == 'completed') {
       if (sheet.status == 'completed') {
-        return Card(
+        return const Card(
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(16),
             child: Row(
               children: [
                 Icon(Icons.check_circle, color: AppColors.success),
-                const SizedBox(width: 10),
+                SizedBox(width: 10),
                 Expanded(
                   child: Text('Final Review complete — this settlement sheet is Completed.', style: AppTextStyles.body),
                 ),
@@ -472,7 +472,7 @@ class _FinalReviewSection extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Final Review', style: AppTextStyles.heading3),
+            const Text('Final Review', style: AppTextStyles.heading3),
             const SizedBox(height: 6),
             Text(
               sheet.status == 'draft'

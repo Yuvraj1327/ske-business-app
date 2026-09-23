@@ -124,7 +124,14 @@ class SettlementService:
 
         scoped_user_id = None if self._can_manage(current_user) else current_user.id
         sheets, total = await self.sheets.list_sheets(pagination, scoped_user_id, status)
-        responses = [await self._build_response(s) for s in sheets]
+
+        agent_ids = {s.delivery_agent_id for s in sheets}
+        agents_by_id: dict[uuid.UUID, User] = {}
+        if agent_ids:
+            agents_result = await self.db.execute(select(User).where(User.id.in_(agent_ids)))
+            agents_by_id = {u.id: u for u in agents_result.scalars().all()}
+
+        responses = [await self._build_response(s, agents_by_id) for s in sheets]
         return responses, total
 
     async def get_sheet(self, sheet_id: uuid.UUID, current_user: CurrentUser) -> SettlementSheetDetailResponse:
@@ -137,9 +144,14 @@ class SettlementService:
         items = [SettlementItemResponse.from_model(i) for i in sorted(sheet.items, key=lambda i: i.row_no)]
         return SettlementSheetDetailResponse(**base.model_dump(), items=items)
 
-    async def _build_response(self, sheet: SettlementSheet) -> SettlementSheetResponse:
-        agent_result = await self.db.execute(select(User).where(User.id == sheet.delivery_agent_id))
-        agent = agent_result.scalar_one_or_none()
+    async def _build_response(
+        self, sheet: SettlementSheet, agents_by_id: dict[uuid.UUID, User] | None = None
+    ) -> SettlementSheetResponse:
+        if agents_by_id is not None:
+            agent = agents_by_id.get(sheet.delivery_agent_id)
+        else:
+            agent_result = await self.db.execute(select(User).where(User.id == sheet.delivery_agent_id))
+            agent = agent_result.scalar_one_or_none()
 
         total_invoice_amount = sum((i.invoice_amount for i in sheet.items), Decimal("0"))
         total_collected = sum(
@@ -196,10 +208,15 @@ class SettlementService:
             await self._require_user_with_role(sid, "salesman") for sid in dict.fromkeys(payload.salesman_ids)
         ]
 
+        customer_ids = {item_payload.customer_id for item_payload in payload.items}
+        customers_by_id: dict[uuid.UUID, Customer] = {}
+        if customer_ids:
+            customers_result = await self.db.execute(select(Customer).where(Customer.id.in_(customer_ids)))
+            customers_by_id = {c.id: c for c in customers_result.scalars().all()}
+
         items: list[SettlementSheetItem] = []
         for row_no, item_payload in enumerate(payload.items, start=1):
-            customer_result = await self.db.execute(select(Customer).where(Customer.id == item_payload.customer_id))
-            customer = customer_result.scalar_one_or_none()
+            customer = customers_by_id.get(item_payload.customer_id)
             if customer is None:
                 raise ValidationError(f"Customer not found for row {row_no}.", field="items")
 

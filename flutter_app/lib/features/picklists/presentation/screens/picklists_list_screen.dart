@@ -21,13 +21,14 @@ class PicklistsListScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final picklistsAsync = ref.watch(picklistsListProvider);
+    final filter = ref.watch(picklistsFilterProvider);
 
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('Picklists', style: AppTextStyles.heading1),
+          const Text('Picklists', style: AppTextStyles.heading1),
           const SizedBox(height: 16),
           Expanded(
             child: picklistsAsync.when(
@@ -43,56 +44,93 @@ class PicklistsListScreen extends ConsumerWidget {
                     icon: Icons.checklist_rtl_outlined,
                   );
                 }
-                return ListView.separated(
-                  itemCount: page.items.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 10),
-                  itemBuilder: (context, i) {
-                    final picklist = page.items[i];
-                    final counts = picklist.counts;
-                    final allDone = counts.pending == 0;
-                    return Card(
-                      clipBehavior: Clip.antiAlias,
-                      child: InkWell(
-                        onTap: () => context.go('/picklists/${picklist.id}'),
-                        child: Padding(
-                          padding: const EdgeInsets.all(14),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(picklist.picklistNo, style: AppTextStyles.heading3),
-                                  ),
-                                  Text(Formatters.currency(picklist.totalAmount), style: AppTextStyles.amount),
-                                ],
+                return Column(
+                  children: [
+                    Expanded(
+                      child: ListView.separated(
+                        itemCount: page.items.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 10),
+                        itemBuilder: (context, i) {
+                          final picklist = page.items[i];
+                          final counts = picklist.counts;
+                          final allDone = counts.pending == 0;
+                          return Card(
+                            clipBehavior: Clip.antiAlias,
+                            child: InkWell(
+                              onTap: () => context.go('/picklists/${picklist.id}'),
+                              child: Padding(
+                                padding: const EdgeInsets.all(14),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(picklist.picklistNo, style: AppTextStyles.heading3),
+                                        ),
+                                        Text(Formatters.currency(picklist.totalAmount), style: AppTextStyles.amount),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      '${picklist.deliveryAgentName}${picklist.psrRoute != null ? ' · ${picklist.psrRoute}' : ''}',
+                                      style: AppTextStyles.bodySecondary,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 6,
+                                      children: [
+                                        _countChip('${counts.total} deliveries', AppColors.textSecondary),
+                                        if (counts.pending > 0) _countChip('${counts.pending} pending', AppColors.warning),
+                                        if (counts.cash > 0) _countChip('${counts.cash} cash', AppColors.success),
+                                        if (counts.online > 0) _countChip('${counts.online} online', AppColors.success),
+                                        if (counts.credit > 0) _countChip('${counts.credit} credit', AppColors.error),
+                                        if (allDone) _countChip('All confirmed', AppColors.success),
+                                      ],
+                                    ),
+                                  ],
+                                ),
                               ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '${picklist.deliveryAgentName}${picklist.psrRoute != null ? ' · ${picklist.psrRoute}' : ''}',
-                                style: AppTextStyles.bodySecondary,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 10),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 6,
-                                children: [
-                                  _countChip('${counts.total} deliveries', AppColors.textSecondary),
-                                  if (counts.pending > 0) _countChip('${counts.pending} pending', AppColors.warning),
-                                  if (counts.cash > 0) _countChip('${counts.cash} cash', AppColors.success),
-                                  if (counts.online > 0) _countChip('${counts.online} online', AppColors.success),
-                                  if (counts.credit > 0) _countChip('${counts.credit} credit', AppColors.error),
-                                  if (allDone) _countChip('All confirmed', AppColors.success),
-                                ],
-                              ),
-                            ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${page.total} picklist(s) · Page ${page.page} of ${page.totalPages}',
+                            style: AppTextStyles.caption,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                      ),
-                    );
-                  },
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.chevron_left),
+                              onPressed: page.page > 1
+                                  ? () => ref.read(picklistsFilterProvider.notifier).state =
+                                      filter.copyWith(page: page.page - 1)
+                                  : null,
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.chevron_right),
+                              onPressed: page.hasNextPage
+                                  ? () => ref.read(picklistsFilterProvider.notifier).state =
+                                      filter.copyWith(page: page.page + 1)
+                                  : null,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
                 );
               },
             ),

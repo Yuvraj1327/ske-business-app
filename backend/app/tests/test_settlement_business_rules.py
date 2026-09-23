@@ -9,7 +9,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.core.exceptions import BusinessRuleError, PermissionDeniedError
+from app.core.exceptions import PermissionDeniedError
 from app.models.settlement import SettlementSheet, SettlementSheetItem
 from app.core.security import CurrentUser
 from app.schemas.settlement import SettlementSheetUpdateRequest

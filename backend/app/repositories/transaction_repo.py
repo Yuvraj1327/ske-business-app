@@ -1,4 +1,3 @@
-import uuid
 from datetime import date
 
 from sqlalchemy import Select, func, select

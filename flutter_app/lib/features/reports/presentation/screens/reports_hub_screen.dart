@@ -49,7 +49,7 @@ class _ReportsHubScreenState extends ConsumerState<ReportsHubScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('Reports', style: AppTextStyles.heading1),
+          const Text('Reports', style: AppTextStyles.heading1),
           const SizedBox(height: 16),
           Wrap(
             spacing: 8,
@@ -240,7 +240,7 @@ class _OutstandingReportView extends ConsumerWidget {
                   return ListTile(
                     title: Text(row.customerName, overflow: TextOverflow.ellipsis),
                     subtitle: Text(row.phone ?? '—'),
-                    trailing: Text(Formatters.currency(row.outstanding), style: TextStyle(color: AppColors.error, fontWeight: FontWeight.w600)),
+                    trailing: Text(Formatters.currency(row.outstanding), style: const TextStyle(color: AppColors.error, fontWeight: FontWeight.w600)),
                   );
                 },
               ),

@@ -161,14 +161,33 @@ class PaymentService:
             result = await self.db.execute(select(Customer).where(Customer.id.in_(customer_ids)))
             customers_by_id = {c.id: c for c in result.scalars().all()}
 
-        responses = [await self._build_response(p, customers_by_id.get(p.customer_id)) for p in items]
+        cheque_payment_ids = [p.id for p in items if p.payment_method == "cheque"]
+        cheques_by_payment_id: dict[uuid.UUID, ChequeDetail] = {}
+        if cheque_payment_ids:
+            cheque_result = await self.db.execute(
+                select(ChequeDetail).where(ChequeDetail.payment_id.in_(cheque_payment_ids))
+            )
+            cheques_by_payment_id = {c.payment_id: c for c in cheque_result.scalars().all()}
+
+        responses = [
+            await self._build_response(p, customers_by_id.get(p.customer_id), cheques_by_payment_id)
+            for p in items
+        ]
         return responses, total
 
-    async def _build_response(self, payment: Payment, customer: Customer | None) -> PaymentResponse:
+    async def _build_response(
+        self,
+        payment: Payment,
+        customer: Customer | None,
+        cheques_by_payment_id: dict[uuid.UUID, ChequeDetail] | None = None,
+    ) -> PaymentResponse:
         cheque_response = None
         if payment.payment_method == "cheque":
-            cheque_result = await self.db.execute(select(ChequeDetail).where(ChequeDetail.payment_id == payment.id))
-            cheque = cheque_result.scalar_one_or_none()
+            if cheques_by_payment_id is not None:
+                cheque = cheques_by_payment_id.get(payment.id)
+            else:
+                cheque_result = await self.db.execute(select(ChequeDetail).where(ChequeDetail.payment_id == payment.id))
+                cheque = cheque_result.scalar_one_or_none()
             if cheque:
                 cheque_response = ChequeDetailResponse(
                     cheque_number=cheque.cheque_number,

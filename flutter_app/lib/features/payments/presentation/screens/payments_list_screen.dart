@@ -66,7 +66,7 @@ class PaymentsListScreen extends ConsumerWidget {
         children: [
           Row(
             children: [
-              Expanded(
+              const Expanded(
                 child: Text('Payments', style: AppTextStyles.heading1, overflow: TextOverflow.ellipsis),
               ),
               const SizedBox(width: 12),

@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.invoice import Invoice
 from app.models.sale import Sale
-from app.utils.pagination import PaginationParams, paginate
+from app.utils.pagination import PaginationParams
 
 
 class InvoiceRepository:

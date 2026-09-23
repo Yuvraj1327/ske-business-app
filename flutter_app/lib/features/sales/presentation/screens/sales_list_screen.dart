@@ -38,7 +38,7 @@ class SalesListScreen extends ConsumerWidget {
         children: [
           Row(
             children: [
-              Expanded(
+              const Expanded(
                 child: Text('Sales', style: AppTextStyles.heading1, overflow: TextOverflow.ellipsis),
               ),
               const SizedBox(width: 12),

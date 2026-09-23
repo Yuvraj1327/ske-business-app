@@ -8,7 +8,6 @@ import '../../../../core/errors/failure.dart';
 import '../../../../core/theme/theme_extensions.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/app_button.dart';
-import '../../../../core/widgets/loading_view.dart';
 import '../../../customers/presentation/providers/customer_providers.dart';
 import '../../../products/domain/product_models.dart';
 import '../../../products/presentation/providers/product_providers.dart';
@@ -28,7 +27,6 @@ class CreateSaleScreen extends ConsumerStatefulWidget {
 
 class _CreateSaleScreenState extends ConsumerState<CreateSaleScreen> {
   String? _selectedCustomerId;
-  String? _selectedCustomerName;
   Product? _selectedProduct;
   final _qtyController = TextEditingController(text: '1');
   final _priceController = TextEditingController();
@@ -122,14 +120,14 @@ class _CreateSaleScreenState extends ConsumerState<CreateSaleScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('Create Sale', style: AppTextStyles.heading1),
+          const Text('Create Sale', style: AppTextStyles.heading1),
           const SizedBox(height: 20),
           Expanded(
             child: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Customer', style: AppTextStyles.heading3),
+                  const Text('Customer', style: AppTextStyles.heading3),
                   const SizedBox(height: 8),
                   customersAsync.when(
                     loading: () => const LinearProgressIndicator(),
@@ -143,13 +141,12 @@ class _CreateSaleScreenState extends ConsumerState<CreateSaleScreen> {
                       onChanged: (value) {
                         setState(() {
                           _selectedCustomerId = value;
-                          _selectedCustomerName = page.items.firstWhere((c) => c.id == value).name;
                         });
                       },
                     ),
                   ),
                   const SizedBox(height: 24),
-                  Text('Add Item', style: AppTextStyles.heading3),
+                  const Text('Add Item', style: AppTextStyles.heading3),
                   const SizedBox(height: 8),
                   productsAsync.when(
                     loading: () => const LinearProgressIndicator(),

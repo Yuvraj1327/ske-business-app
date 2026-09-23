@@ -40,7 +40,7 @@ class _CustomersListScreenState extends ConsumerState<CustomersListScreen> {
         children: [
           Row(
             children: [
-              Expanded(
+              const Expanded(
                 child: Text('Customers', style: AppTextStyles.heading1, overflow: TextOverflow.ellipsis),
               ),
               const SizedBox(width: 12),

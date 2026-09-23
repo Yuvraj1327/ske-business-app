@@ -1,3 +1,4 @@
+import 'package:equatable/equatable.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/auth/auth_state.dart';
@@ -39,11 +40,25 @@ final deliveryAgentsProvider = FutureProvider.autoDispose<List<ManagedUser>>((re
   return page.items;
 });
 
+class PicklistsFilter extends Equatable {
+  final int page;
+
+  const PicklistsFilter({this.page = 1});
+
+  PicklistsFilter copyWith({int? page}) => PicklistsFilter(page: page ?? this.page);
+
+  @override
+  List<Object?> get props => [page];
+}
+
+final picklistsFilterProvider = StateProvider.autoDispose<PicklistsFilter>((ref) => const PicklistsFilter());
+
 /// Admin sees every picklist; a Delivery Agent sees only their own —
 /// enforced server-side (see PicklistService.list_picklists), so this is
 /// the same query for both roles.
 final picklistsListProvider = FutureProvider.autoDispose<Page<Picklist>>((ref) {
-  return ref.watch(picklistRepositoryProvider).listPicklists(pageSize: 50);
+  final filter = ref.watch(picklistsFilterProvider);
+  return ref.watch(picklistRepositoryProvider).listPicklists(page: filter.page, pageSize: 50);
 });
 
 final picklistDetailProvider = FutureProvider.autoDispose.family<PicklistDetail, String>((ref, id) {

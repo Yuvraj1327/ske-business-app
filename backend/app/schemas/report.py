@@ -3,7 +3,6 @@ from datetime import date
 
 from pydantic import BaseModel
 
-from app.schemas.customer import CustomerResponse
 from app.schemas.expense import ExpenseResponse
 from app.schemas.payment import PaymentResponse
 from app.schemas.sale import SaleListItemResponse

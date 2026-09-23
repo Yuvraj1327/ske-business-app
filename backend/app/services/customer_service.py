@@ -15,7 +15,6 @@ from app.schemas.common import money_str
 from app.schemas.customer import (
     CustomerCreateRequest,
     CustomerLedgerResponse,
-    CustomerListResponse,
     CustomerOutstandingResponse,
     CustomerResponse,
     CustomerUpdateRequest,

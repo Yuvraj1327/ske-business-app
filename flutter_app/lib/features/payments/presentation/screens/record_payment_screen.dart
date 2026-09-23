@@ -104,7 +104,7 @@ class _RecordPaymentScreenState extends ConsumerState<RecordPaymentScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('Record Payment', style: AppTextStyles.heading1),
+          const Text('Record Payment', style: AppTextStyles.heading1),
           const SizedBox(height: 20),
           Expanded(
             child: SingleChildScrollView(
@@ -113,7 +113,7 @@ class _RecordPaymentScreenState extends ConsumerState<RecordPaymentScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text('Customer', style: AppTextStyles.heading3),
+                    const Text('Customer', style: AppTextStyles.heading3),
                     const SizedBox(height: 8),
                     customersAsync.when(
                       loading: () => const LinearProgressIndicator(),
@@ -136,7 +136,7 @@ class _RecordPaymentScreenState extends ConsumerState<RecordPaymentScreen> {
                       enabled: !isSubmitting,
                     ),
                     const SizedBox(height: 16),
-                    Text('Payment Method', style: AppTextStyles.heading3),
+                    const Text('Payment Method', style: AppTextStyles.heading3),
                     const SizedBox(height: 8),
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,

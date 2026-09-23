@@ -4,7 +4,6 @@ from sqlalchemy import Select, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from app.models.customer import Customer
 from app.models.invoice import Invoice
 from app.models.sale import Sale
 from app.utils.pagination import PaginationParams, paginate

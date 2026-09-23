@@ -1,3 +1,4 @@
+import 'package:equatable/equatable.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/auth/auth_state.dart';
@@ -10,8 +11,22 @@ final returnRepositoryProvider = Provider<ReturnRepository>((ref) {
   return ReturnRepository(ref.watch(apiClientProvider));
 });
 
+class ReturnsFilter extends Equatable {
+  final int page;
+
+  const ReturnsFilter({this.page = 1});
+
+  ReturnsFilter copyWith({int? page}) => ReturnsFilter(page: page ?? this.page);
+
+  @override
+  List<Object?> get props => [page];
+}
+
+final returnsFilterProvider = StateProvider.autoDispose<ReturnsFilter>((ref) => const ReturnsFilter());
+
 final returnsListProvider = FutureProvider.autoDispose<Page<SalesReturn>>((ref) {
-  return ref.watch(returnRepositoryProvider).listReturns();
+  final filter = ref.watch(returnsFilterProvider);
+  return ref.watch(returnRepositoryProvider).listReturns(page: filter.page);
 });
 
 /// Returns for a single sale — used to show what's already been returned
