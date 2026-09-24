@@ -54,12 +54,15 @@ class Settings(BaseSettings):
 
         `flutter run -d chrome` serves the app from an ephemeral port that
         changes on every run, so a static allowlist can never match it and the
-        browser blocks every request. In production the exact Vercel domain
-        is matched via the CORS_ORIGINS allowlist above, so no regex is
-        needed there.
+        browser blocks every request.
+
+        In production this matches only the exact Vercel domain. It's kept
+        as a regex (rather than relying solely on the CORS_ORIGINS
+        allowlist) because CORS_ORIGINS is normally set via an env var on
+        the host and may not include this domain.
         """
         if self.is_production:
-            return None
+            return r"^https://ske-business-app\.vercel\.app$"
         return r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$"
 
     @property
