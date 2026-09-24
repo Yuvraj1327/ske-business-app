@@ -54,11 +54,12 @@ class Settings(BaseSettings):
 
         `flutter run -d chrome` serves the app from an ephemeral port that
         changes on every run, so a static allowlist can never match it and the
-        browser blocks every request. In production this returns None and only
-        the explicit CORS_ORIGINS allowlist applies.
+        browser blocks every request. In production this matches only the
+        deployed Vercel Web domain (plus its preview subdomains); the
+        explicit CORS_ORIGINS allowlist still applies on top of this.
         """
         if self.is_production:
-            return None
+            return r"^https://ske-business-app(-[a-z0-9-]+)?\.vercel\.app$"
         return r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$"
 
     @property
