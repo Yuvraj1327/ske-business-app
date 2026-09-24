@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     APP_ENV: str = "development"
     DEBUG: bool = True
     API_V1_PREFIX: str = "/api/v1"
-    CORS_ORIGINS: str = "http://localhost:3000"
+    CORS_ORIGINS: str = "http://localhost:3000,https://ske-business-app.vercel.app"
 
     # --- Supabase ---
     SUPABASE_URL: str
@@ -54,12 +54,12 @@ class Settings(BaseSettings):
 
         `flutter run -d chrome` serves the app from an ephemeral port that
         changes on every run, so a static allowlist can never match it and the
-        browser blocks every request. In production this matches only the
-        deployed Vercel Web domain (plus its preview subdomains); the
-        explicit CORS_ORIGINS allowlist still applies on top of this.
+        browser blocks every request. In production the exact Vercel domain
+        is matched via the CORS_ORIGINS allowlist above, so no regex is
+        needed there.
         """
         if self.is_production:
-            return r"^https://ske-business-app(-[a-z0-9-]+)?\.vercel\.app$"
+            return None
         return r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$"
 
     @property
