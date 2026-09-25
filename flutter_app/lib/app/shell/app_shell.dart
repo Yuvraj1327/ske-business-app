@@ -137,6 +137,7 @@ class AppShell extends ConsumerWidget {
               selectedIndex: sidebarSelectedIndex < 0 ? 0 : sidebarSelectedIndex,
               onDestinationSelected: (index) => context.go(visibleSidebar[index].path),
               labelType: NavigationRailLabelType.all,
+              scrollable: true,
               leading: const Padding(
                 padding: EdgeInsets.symmetric(vertical: 20),
                 child: CompanyLogoMark(),
