@@ -50,20 +50,21 @@ class Settings(BaseSettings):
     @property
     def cors_origin_regex(self) -> str | None:
         """
-        Outside production, allow any localhost/127.0.0.1 port.
+        Allow any localhost/127.0.0.1 port in every environment.
 
         `flutter run -d chrome` serves the app from an ephemeral port that
         changes on every run, so a static allowlist can never match it and the
-        browser blocks every request.
+        browser blocks every request (including against the Railway backend).
 
-        In production this matches only the exact Vercel domain. It's kept
-        as a regex (rather than relying solely on the CORS_ORIGINS
+        In production the exact Vercel domain is allowed as well. It's kept
+        in the regex (rather than relying solely on the CORS_ORIGINS
         allowlist) because CORS_ORIGINS is normally set via an env var on
         the host and may not include this domain.
         """
+        local = r"https?://(localhost|127\.0\.0\.1)(:\d+)?"
         if self.is_production:
-            return r"^https://ske-business-app\.vercel\.app$"
-        return r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$"
+            return rf"^({local}|https://ske-business-app\.vercel\.app)$"
+        return rf"^{local}$"
 
     @property
     def is_production(self) -> bool:
