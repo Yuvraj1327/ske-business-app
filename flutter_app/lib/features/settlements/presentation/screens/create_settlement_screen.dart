@@ -7,7 +7,8 @@ import '../../../../core/errors/failure.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_text_field.dart';
-import '../../../picklists/presentation/providers/picklist_providers.dart' show deliveryAgentsProvider;
+import '../../../picklists/presentation/providers/picklist_providers.dart'
+    show deliveryAgentsProvider, picklistsListProvider;
 import '../../domain/settlement_models.dart';
 import '../providers/settlement_providers.dart';
 import '../widgets/add_settlement_row_dialog.dart';
@@ -198,7 +199,19 @@ class _CreateSettlementScreenState extends ConsumerState<CreateSettlementScreen>
                         ),
                       ),
                       const SizedBox(height: 14),
-                      AppTextField(label: 'Pick Sheet No.', controller: _pickSheetNoController),
+                      // Previously imported Picklist numbers (existing
+                      // GET /picklists data) as suggestions; typing a
+                      // number that isn't listed still works.
+                      DropdownMenu<String>(
+                        controller: _pickSheetNoController,
+                        expandedInsets: EdgeInsets.zero,
+                        label: const Text('Pick Sheet No.'),
+                        enableFilter: true,
+                        requestFocusOnTap: true,
+                        dropdownMenuEntries: (ref.watch(picklistsListProvider).valueOrNull?.items ?? const [])
+                            .map((p) => DropdownMenuEntry(value: p.picklistNo, label: p.picklistNo))
+                            .toList(),
+                      ),
                       const SizedBox(height: 14),
                       AppTextField(
                         label: 'Pick Sheet Value',

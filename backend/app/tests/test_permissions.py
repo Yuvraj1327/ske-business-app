@@ -68,3 +68,10 @@ def test_has_permission_checks_exact_key():
     user = _make_user("salesman", {"customers.view_assigned"})
     assert user.has_permission("customers.view_assigned") is True
     assert user.has_permission("customers.view_all") is False
+
+
+def test_is_picklist_agent_only_for_non_admin_with_assigned_picklists_and_no_manage():
+    assert _make_user("delivery_agent", {"picklists.view_assigned"}).is_picklist_agent
+    assert not _make_user("admin", {"picklists.view_assigned"}).is_picklist_agent
+    assert not _make_user("staff", {"picklists.view_assigned", "picklists.manage"}).is_picklist_agent
+    assert not _make_user("salesman", {"sales.create"}).is_picklist_agent

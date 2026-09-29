@@ -35,10 +35,10 @@ async def list_returns(
     sale_id: uuid.UUID | None = Query(default=None),
     pagination: PaginationParams = Depends(pagination_params),
     db: AsyncSession = Depends(get_db),
-    _: CurrentUser = Depends(require_permission("returns.create")),
+    current_user: CurrentUser = Depends(require_permission("returns.create")),
 ) -> SalesReturnListResponse:
     service = SalesReturnService(db)
-    items, total = await service.list_returns(pagination, customer_id, sale_id)
+    items, total = await service.list_returns(pagination, customer_id, sale_id, current_user)
     return SalesReturnListResponse(
         items=items,
         total=total,
@@ -52,7 +52,7 @@ async def list_returns(
 async def get_return(
     return_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    _: CurrentUser = Depends(require_permission("returns.create")),
+    current_user: CurrentUser = Depends(require_permission("returns.create")),
 ) -> SalesReturnResponse:
     service = SalesReturnService(db)
-    return await service.get_return(return_id)
+    return await service.get_return(return_id, current_user)

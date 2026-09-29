@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
@@ -103,6 +104,18 @@ class _PicklistItemCardState extends ConsumerState<_PicklistItemCard> {
     }
   }
 
+  /// Return actions reuse the existing Sales Return screen for this row's
+  /// sale; only the pre-filled reason / quantities differ.
+  Widget _returnOption(String label, {required String reason, bool full = false}) {
+    return OutlinedButton(
+      onPressed: () => context.push(
+        Uri(path: '/sales/${widget.item.saleId}/return', queryParameters: {'reason': reason, if (full) 'full': '1'})
+            .toString(),
+      ),
+      child: Text(label),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final item = widget.item;
@@ -152,6 +165,19 @@ class _PicklistItemCardState extends ConsumerState<_PicklistItemCard> {
                       : const Text('Save / Confirm'),
                 ),
               ),
+              if (item.saleId != null) ...[
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: [
+                    _returnOption('Full Return', reason: 'Full return', full: true),
+                    _returnOption('Partial Return', reason: 'Partial return'),
+                    _returnOption('Damaged', reason: 'Damaged'),
+                    _returnOption('Wrong Item', reason: 'Wrong item'),
+                  ],
+                ),
+              ],
             ] else
               Align(
                 alignment: Alignment.centerLeft,

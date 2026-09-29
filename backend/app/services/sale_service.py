@@ -12,6 +12,7 @@ from app.models.invoice import Invoice
 from app.models.payment import Payment
 from app.models.product import Product
 from app.models.sale import Sale, SaleItem
+from app.repositories.picklist_repo import PicklistRepository
 from app.repositories.sale_repo import SaleRepository
 from app.schemas.common import money_str
 from app.schemas.sale import (
@@ -201,7 +202,13 @@ class SaleService:
 
         scoped_salesman_id = self._scope_salesman_id(current_user)
         if scoped_salesman_id is not None and sale.salesman_id != scoped_salesman_id:
-            raise NotFoundError("Sale not found")
+            # Picklist-imported sales have no salesman; a Delivery Agent may
+            # still open the ones on their own picklists (e.g. to record a return).
+            if not (
+                current_user.is_picklist_agent
+                and await PicklistRepository(self.db).agent_has_sale(current_user.id, sale_id)
+            ):
+                raise NotFoundError("Sale not found")
 
         customer_result = await self.db.execute(select(Customer).where(Customer.id == sale.customer_id))
         customer = customer_result.scalar_one()

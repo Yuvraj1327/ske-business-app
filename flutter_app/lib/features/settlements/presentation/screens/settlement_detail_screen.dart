@@ -14,6 +14,7 @@ import '../../../../core/widgets/status_badge.dart';
 import '../../domain/settlement_models.dart';
 import '../providers/settlement_providers.dart';
 import '../widgets/add_settlement_row_dialog.dart';
+import '../widgets/cash_note_breakdown_dialog.dart';
 
 /// Full detail of one Settlement Sheet, laid out as clear sections —
 /// Basic Details -> Settlement Summary -> Customer-wise Details -> Final
@@ -606,6 +607,11 @@ class _ItemCardState extends ConsumerState<_ItemCard> {
     }
   }
 
+  Future<void> _countCashByNotes() async {
+    final total = await showCashNoteBreakdownDialog(context);
+    if (total != null) setState(() => _cashController.text = total.toStringAsFixed(2));
+  }
+
   Future<void> _saveCredit() async {
     final collected = double.tryParse(_creditCollectedController.text.trim()) ?? 0;
     final success = await ref.read(settlementMutationControllerProvider.notifier).updateItemCredit(
@@ -700,7 +706,14 @@ class _ItemCardState extends ConsumerState<_ItemCard> {
                 TextField(
                   controller: _cashController,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(labelText: 'Cash Amount'),
+                  decoration: InputDecoration(
+                    labelText: 'Cash Amount',
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.calculate_outlined),
+                      tooltip: 'Count by notes',
+                      onPressed: _countCashByNotes,
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 10),
                 TextField(

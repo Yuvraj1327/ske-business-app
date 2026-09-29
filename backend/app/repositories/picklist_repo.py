@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import Select, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
@@ -27,6 +27,18 @@ class PicklistRepository:
         if delivery_agent_id:
             stmt = stmt.where(Picklist.delivery_agent_id == delivery_agent_id)
         return await paginate(self.db, stmt, pagination)
+
+    def agent_sale_ids(self, agent_id: uuid.UUID) -> Select:
+        """Sale ids linked to picklist items on this delivery agent's picklists."""
+        return (
+            select(PicklistItem.sale_id)
+            .join(Picklist, Picklist.id == PicklistItem.picklist_id)
+            .where(Picklist.delivery_agent_id == agent_id, PicklistItem.sale_id.is_not(None))
+        )
+
+    async def agent_has_sale(self, agent_id: uuid.UUID, sale_id: uuid.UUID) -> bool:
+        result = await self.db.execute(self.agent_sale_ids(agent_id).where(PicklistItem.sale_id == sale_id).limit(1))
+        return result.first() is not None
 
     async def create(self, picklist: Picklist) -> Picklist:
         self.db.add(picklist)

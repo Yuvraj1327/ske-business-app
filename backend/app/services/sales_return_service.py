@@ -5,12 +5,13 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import BusinessRuleError, NotFoundError, ValidationError
+from app.core.exceptions import BusinessRuleError, NotFoundError, PermissionDeniedError, ValidationError
 from app.core.security import CurrentUser
 from app.models.customer import Customer
 from app.models.product import Product
 from app.models.sale import Sale, SaleItem
 from app.models.sales_return import SalesReturn, SalesReturnItem
+from app.repositories.picklist_repo import PicklistRepository
 from app.repositories.sales_return_repo import SalesReturnRepository
 from app.schemas.common import money_str
 from app.schemas.sales_return import SalesReturnCreateRequest, SalesReturnItemResponse, SalesReturnResponse
@@ -22,12 +23,20 @@ class SalesReturnService:
     def __init__(self, db: AsyncSession):
         self.db = db
         self.returns = SalesReturnRepository(db)
+        self.picklists = PicklistRepository(db)
+
+    async def _check_sale_access(self, sale_id: uuid.UUID, current_user: CurrentUser) -> None:
+        """A Delivery Agent may only return against sales on their own
+        picklists; other roles keep their existing unrestricted access."""
+        if current_user.is_picklist_agent and not await self.picklists.agent_has_sale(current_user.id, sale_id):
+            raise PermissionDeniedError("You can only manage returns for sales on your own picklists.")
 
     async def create_return(self, payload: SalesReturnCreateRequest, current_user: CurrentUser) -> SalesReturnResponse:
         sale_result = await self.db.execute(select(Sale).where(Sale.id == payload.sale_id))
         sale = sale_result.scalar_one_or_none()
         if sale is None:
             raise ValidationError("Sale does not exist.", field="sale_id")
+        await self._check_sale_access(sale.id, current_user)
         if sale.status != "active":
             raise BusinessRuleError("Cannot create a return against a cancelled sale.")
 
@@ -133,16 +142,24 @@ class SalesReturnService:
             created_at=sales_return.created_at,
         )
 
-    async def get_return(self, return_id: uuid.UUID) -> SalesReturnResponse:
+    async def get_return(self, return_id: uuid.UUID, current_user: CurrentUser) -> SalesReturnResponse:
         sales_return = await self.returns.get_by_id(return_id)
         if sales_return is None:
             raise NotFoundError("Return not found")
+        await self._check_sale_access(sales_return.sale_id, current_user)
         sale_result = await self.db.execute(select(Sale).where(Sale.id == sales_return.sale_id))
         sale = sale_result.scalar_one()
         return await self._build_response(sales_return, sale)
 
-    async def list_returns(self, pagination: PaginationParams, customer_id: uuid.UUID | None, sale_id: uuid.UUID | None):
-        items, total = await self.returns.list_returns(pagination, customer_id, sale_id)
+    async def list_returns(
+        self,
+        pagination: PaginationParams,
+        customer_id: uuid.UUID | None,
+        sale_id: uuid.UUID | None,
+        current_user: CurrentUser,
+    ):
+        agent_sale_ids = self.picklists.agent_sale_ids(current_user.id) if current_user.is_picklist_agent else None
+        items, total = await self.returns.list_returns(pagination, customer_id, sale_id, agent_sale_ids)
         responses = []
         for sales_return in items:
             sale_result = await self.db.execute(select(Sale).where(Sale.id == sales_return.sale_id))

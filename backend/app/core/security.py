@@ -87,6 +87,16 @@ class CurrentUser:
     def is_admin(self) -> bool:
         return self.role_name == "admin"
 
+    @property
+    def is_picklist_agent(self) -> bool:
+        """Delivery-Agent-style access: works only their own assigned
+        picklists (picklists.view_assigned) rather than managing all of them."""
+        return (
+            not self.is_admin
+            and self.has_permission("picklists.view_assigned")
+            and not self.has_permission("picklists.manage")
+        )
+
 
 async def _decode_supabase_jwt(token: str) -> dict:
     try:

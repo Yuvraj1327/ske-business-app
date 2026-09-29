@@ -17,9 +17,15 @@ import '../providers/return_providers.dart';
 /// authoritatively and is the real source of truth (see
 /// app/services/sales_return_service.py).
 class CreateReturnScreen extends ConsumerStatefulWidget {
-  const CreateReturnScreen({super.key, required this.saleId});
+  const CreateReturnScreen({super.key, required this.saleId, this.initialReason, this.fullReturn = false});
 
   final String saleId;
+
+  /// Pre-fills the reason (e.g. from the Picklist screen's return actions).
+  final String? initialReason;
+
+  /// Pre-fills every line with its full returnable quantity.
+  final bool fullReturn;
 
   @override
   ConsumerState<CreateReturnScreen> createState() => _CreateReturnScreenState();
@@ -27,7 +33,8 @@ class CreateReturnScreen extends ConsumerStatefulWidget {
 
 class _CreateReturnScreenState extends ConsumerState<CreateReturnScreen> {
   final Map<String, TextEditingController> _qtyControllers = {};
-  final _reasonController = TextEditingController();
+  late final _reasonController = TextEditingController(text: widget.initialReason);
+  bool _fullReturnApplied = false;
 
   @override
   void dispose() {
@@ -66,7 +73,9 @@ class _CreateReturnScreenState extends ConsumerState<CreateReturnScreen> {
     if (result != null) {
       ref.invalidate(saleDetailProvider(widget.saleId));
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Return recorded.')));
-      context.go('/sales/${widget.saleId}');
+      // Opened from the Picklist screen (pushed) -> go back there; otherwise
+      // (from Sale Detail) keep the original behaviour.
+      context.canPop() ? context.pop() : context.go('/sales/${widget.saleId}');
     } else {
       final state = ref.read(returnMutationControllerProvider);
       final failure = state.hasError ? state.error as Failure : Failure.unknown();
@@ -96,6 +105,14 @@ class _CreateReturnScreenState extends ConsumerState<CreateReturnScreen> {
               }
             }
           });
+
+          if (widget.fullReturn && !_fullReturnApplied && priorReturnsAsync.hasValue) {
+            _fullReturnApplied = true;
+            for (final item in sale.items) {
+              final returnable = item.quantity - (alreadyReturnedByItem[item.id] ?? 0);
+              if (returnable > 0) _controllerFor(item.id).text = '$returnable';
+            }
+          }
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,

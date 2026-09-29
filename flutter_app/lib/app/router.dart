@@ -129,7 +129,11 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/sales/:id/return',
-            pageBuilder: (context, state) => _instant(CreateReturnScreen(saleId: state.pathParameters['id']!)),
+            pageBuilder: (context, state) => _instant(CreateReturnScreen(
+              saleId: state.pathParameters['id']!,
+              initialReason: state.uri.queryParameters['reason'],
+              fullReturn: state.uri.queryParameters['full'] == '1',
+            )),
           ),
 
           GoRoute(path: '/payments', pageBuilder: (context, state) => _instant(const PaymentsListScreen())),

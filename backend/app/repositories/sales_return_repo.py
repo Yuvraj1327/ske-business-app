@@ -29,16 +29,26 @@ class SalesReturnRepository:
         )
         return result.scalar_one()
 
-    def _base_query(self, customer_id: uuid.UUID | None, sale_id: uuid.UUID | None) -> Select:
+    def _base_query(
+        self, customer_id: uuid.UUID | None, sale_id: uuid.UUID | None, restrict_to_sale_ids: Select | None = None
+    ) -> Select:
         stmt = select(SalesReturn)
+        if restrict_to_sale_ids is not None:
+            stmt = stmt.where(SalesReturn.sale_id.in_(restrict_to_sale_ids))
         if customer_id:
             stmt = stmt.where(SalesReturn.customer_id == customer_id)
         if sale_id:
             stmt = stmt.where(SalesReturn.sale_id == sale_id)
         return stmt.order_by(SalesReturn.return_date.desc(), SalesReturn.created_at.desc())
 
-    async def list_returns(self, pagination: PaginationParams, customer_id: uuid.UUID | None, sale_id: uuid.UUID | None):
-        stmt = self._base_query(customer_id, sale_id)
+    async def list_returns(
+        self,
+        pagination: PaginationParams,
+        customer_id: uuid.UUID | None,
+        sale_id: uuid.UUID | None,
+        restrict_to_sale_ids: Select | None = None,
+    ):
+        stmt = self._base_query(customer_id, sale_id, restrict_to_sale_ids)
         return await paginate(self.db, stmt, pagination)
 
     async def create(self, sales_return: SalesReturn) -> SalesReturn:
