@@ -51,7 +51,7 @@ class ReturnsListScreen extends ConsumerWidget {
                               overflow: TextOverflow.ellipsis,
                             ),
                             trailing: Text(Formatters.currency(ret.totalReturnAmount)),
-                            onTap: () => context.go('/sales/${ret.saleId}'),
+                            onTap: () => context.push('/sales/${ret.saleId}'),
                           );
                         },
                       ),

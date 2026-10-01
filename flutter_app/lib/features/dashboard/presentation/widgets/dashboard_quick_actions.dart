@@ -21,9 +21,9 @@ class DashboardQuickActions extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final actions = <_QuickAction>[
       if (ref.watch(hasPermissionProvider(Permission.salesCreate)))
-        _QuickAction(label: 'New Sale', icon: Icons.point_of_sale_outlined, onTap: () => context.go('/sales/new')),
+        _QuickAction(label: 'New Sale', icon: Icons.point_of_sale_outlined, onTap: () => context.push('/sales/new')),
       if (ref.watch(hasPermissionProvider(Permission.paymentsCreate)))
-        _QuickAction(label: 'New Payment', icon: Icons.payments_outlined, onTap: () => context.go('/payments/new')),
+        _QuickAction(label: 'New Payment', icon: Icons.payments_outlined, onTap: () => context.push('/payments/new')),
       if (ref.watch(hasPermissionProvider(Permission.customersCreate)))
         _QuickAction(label: 'New Customer', icon: Icons.person_add_alt_1_outlined, onTap: () => showCustomerFormDialog(context)),
       if (ref.watch(hasPermissionProvider(Permission.expensesManage)))

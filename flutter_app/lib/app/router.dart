@@ -109,7 +109,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       // top bar). ShellRoute keeps AppShell alive across navigation instead
       // of rebuilding it per page.
       ShellRoute(
-        builder: (context, state, child) => AppShell(currentPath: state.matchedLocation, child: child),
+        // uri.path (not matchedLocation): the shell's matchedLocation doesn't
+        // update when a page is pushed on top, which would hide the Back button.
+        builder: (context, state, child) => AppShell(currentPath: state.uri.path, child: child),
         routes: [
           GoRoute(path: '/dashboard', pageBuilder: (context, state) => _instant(const DashboardShellScreen())),
 

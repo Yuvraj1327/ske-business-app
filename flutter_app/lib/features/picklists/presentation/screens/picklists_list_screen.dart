@@ -57,7 +57,7 @@ class PicklistsListScreen extends ConsumerWidget {
                           return Card(
                             clipBehavior: Clip.antiAlias,
                             child: InkWell(
-                              onTap: () => context.go('/picklists/${picklist.id}'),
+                              onTap: () => context.push('/picklists/${picklist.id}'),
                               child: Padding(
                                 padding: const EdgeInsets.all(14),
                                 child: Column(

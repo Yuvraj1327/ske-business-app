@@ -92,6 +92,23 @@ class AppShell extends ConsumerWidget {
   final Widget child;
   final String currentPath;
 
+  /// The only page without a Back button.
+  static const _rootPath = '/dashboard';
+
+  /// Back = the exact previous screen when there is one on the navigation
+  /// stack (drill-downs use `context.push`, so it is); otherwise — e.g. a
+  /// page reached from the sidebar/drawer, or a fresh deep link — its
+  /// logical parent (`/sales/123` -> `/sales`), ending at the dashboard.
+  void _goBack(BuildContext context) {
+    final router = GoRouter.of(context);
+    if (router.canPop()) {
+      router.pop();
+      return;
+    }
+    final lastSlash = currentPath.lastIndexOf('/');
+    router.go(lastSlash > 0 ? currentPath.substring(0, lastSlash) : _rootPath);
+  }
+
   bool _isVisible(WidgetRef ref, AppUser? user, String? requiredPermission) {
     if (requiredPermission == null) return true;
     if (user == null) return false;
@@ -116,21 +133,68 @@ class AppShell extends ConsumerWidget {
             ? 'Settings'
             : 'Sai Krishna Enterprises';
 
+    final showBack = currentPath != _rootPath;
+
+    // One shared Back control for every inner page. On narrow screens the
+    // drawer's menu button (normally the implied leading) sits beside it so
+    // the full feature list stays reachable.
+    final Widget? leading = !showBack
+        ? null
+        : isWide
+            ? Padding(
+                padding: const EdgeInsets.only(left: 8),
+                child: TextButton.icon(
+                  onPressed: () => _goBack(context),
+                  icon: const Icon(Icons.arrow_back),
+                  label: const Text('Back'),
+                  style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.onSurface),
+                ),
+              )
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back),
+                    tooltip: 'Back',
+                    onPressed: () => _goBack(context),
+                  ),
+                  Builder(
+                    builder: (context) => IconButton(
+                      icon: const Icon(Icons.menu),
+                      tooltip: 'Menu',
+                      onPressed: () => Scaffold.of(context).openDrawer(),
+                    ),
+                  ),
+                ],
+              );
+
     final topBar = AppBar(
       title: Text(currentTitle),
+      leading: leading,
+      leadingWidth: leading == null ? null : (isWide ? 110 : 104),
       automaticallyImplyLeading: !isWide,
       actions: [
         IconButton(
           icon: const Icon(Icons.settings_outlined),
           tooltip: 'Settings',
-          onPressed: () => context.go('/settings'),
+          onPressed: () => currentPath == '/settings' ? null : context.push('/settings'),
         ),
         const SizedBox(width: 4),
       ],
     );
 
+    // Android system back / gesture: pop history if there is any, otherwise
+    // fall back to the parent page; only the dashboard lets the app close.
+    Widget withSystemBack(Widget scaffold) => PopScope(
+          canPop: !showBack,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop) _goBack(context);
+          },
+          child: scaffold,
+        );
+
     if (isWide) {
-      return Scaffold(
+      return withSystemBack(Scaffold(
         body: Row(
           children: [
             NavigationRail(
@@ -157,10 +221,10 @@ class AppShell extends ConsumerWidget {
             ),
           ],
         ),
-      );
+      ));
     }
 
-    return Scaffold(
+    return withSystemBack(Scaffold(
       appBar: topBar,
       drawer: Drawer(
         child: SafeArea(
@@ -210,6 +274,6 @@ class AppShell extends ConsumerWidget {
                   .toList(),
             ),
       body: child,
-    );
+    ));
   }
 }

@@ -127,13 +127,13 @@ class SaleDetailScreen extends ConsumerWidget {
                         OutlinedButton.icon(
                           icon: const Icon(Icons.payments_outlined, size: 18),
                           label: const Text('Record Payment'),
-                          onPressed: () => context.go('/payments/new?customerId=${sale.customerId}&saleId=${sale.id}'),
+                          onPressed: () => context.push('/payments/new?customerId=${sale.customerId}&saleId=${sale.id}'),
                         ),
                       if (canReturn && sale.status == 'active')
                         OutlinedButton.icon(
                           icon: const Icon(Icons.assignment_return_outlined, size: 18),
                           label: const Text('Create Return'),
-                          onPressed: () => context.go('/sales/${sale.id}/return'),
+                          onPressed: () => context.push('/sales/${sale.id}/return'),
                         ),
                       if (canCancel && sale.status == 'active')
                         OutlinedButton.icon(

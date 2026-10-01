@@ -51,7 +51,7 @@ class SalesmenListScreen extends ConsumerWidget {
                         label: salesman.isActive ? 'Active' : 'Inactive',
                         color: salesman.isActive ? AppColors.success : AppColors.statusCancelled,
                       ),
-                      onTap: () => context.go('/salesmen/${salesman.id}'),
+                      onTap: () => context.push('/salesmen/${salesman.id}'),
                     );
                   },
                 );

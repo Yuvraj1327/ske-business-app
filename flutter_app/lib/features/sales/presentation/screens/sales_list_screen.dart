@@ -45,7 +45,7 @@ class SalesListScreen extends ConsumerWidget {
               ElevatedButton.icon(
                 icon: const Icon(Icons.add, size: 18),
                 label: const Text('New Sale'),
-                onPressed: () => context.go('/sales/new'),
+                onPressed: () => context.push('/sales/new'),
               ),
             ],
           ),
@@ -85,7 +85,7 @@ class SalesListScreen extends ConsumerWidget {
                                 StatusBadge(label: sale.paymentStatus, color: _statusColor(sale.paymentStatus)),
                               ],
                             ),
-                            onTap: () => context.go('/sales/${sale.id}'),
+                            onTap: () => context.push('/sales/${sale.id}'),
                           );
                         },
                       ),

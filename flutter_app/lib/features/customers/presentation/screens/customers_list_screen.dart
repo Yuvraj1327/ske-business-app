@@ -86,7 +86,7 @@ class _CustomersListScreenState extends ConsumerState<CustomersListScreen> {
                               label: customer.isActive ? 'Active' : 'Inactive',
                               color: customer.isActive ? AppColors.success : AppColors.statusCancelled,
                             ),
-                            onTap: () => context.go('/customers/${customer.id}'),
+                            onTap: () => context.push('/customers/${customer.id}'),
                           );
                         },
                       ),

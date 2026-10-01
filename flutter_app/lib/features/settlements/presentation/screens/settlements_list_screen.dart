@@ -56,7 +56,7 @@ class _SettlementsListScreenState extends ConsumerState<SettlementsListScreen> {
               const Spacer(),
               if (canCreate)
                 FilledButton.icon(
-                  onPressed: () => context.go('/settlements/new'),
+                  onPressed: () => context.push('/settlements/new'),
                   icon: const Icon(Icons.add),
                   label: const Text('New Sheet'),
                 ),
@@ -113,7 +113,7 @@ class _SettlementsListScreenState extends ConsumerState<SettlementsListScreen> {
                     return Card(
                       clipBehavior: Clip.antiAlias,
                       child: InkWell(
-                        onTap: () => context.go('/settlements/${sheet.id}'),
+                        onTap: () => context.push('/settlements/${sheet.id}'),
                         child: Padding(
                           padding: const EdgeInsets.all(14),
                           child: Column(

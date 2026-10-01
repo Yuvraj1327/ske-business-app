@@ -109,7 +109,7 @@ class _CreateSettlementScreenState extends ConsumerState<CreateSettlementScreen>
 
     if (!mounted) return;
     if (sheet != null) {
-      context.go('/settlements/${sheet.id}');
+      context.pushReplacement('/settlements/${sheet.id}');
     } else {
       final state = ref.read(settlementMutationControllerProvider);
       final failure = state.hasError ? state.error as Failure : Failure.unknown();

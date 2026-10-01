@@ -123,7 +123,7 @@ class _SalesTab extends ConsumerWidget {
               title: Text(sale.invoiceNumber ?? 'Sale on ${Formatters.date(sale.saleDate)}'),
               subtitle: Text(Formatters.date(sale.saleDate)),
               trailing: Text(Formatters.currency(sale.totalAmount)),
-              onTap: () => context.go('/sales/${sale.id}'),
+              onTap: () => context.push('/sales/${sale.id}'),
             );
           },
         );

@@ -235,9 +235,9 @@ class _QuickActionsRow extends ConsumerWidget {
 
     final actions = <Widget>[
       if (canCreateSale)
-        QuickActionButton(label: 'New Sale', icon: Icons.point_of_sale_outlined, onTap: () => context.go('/sales/new')),
+        QuickActionButton(label: 'New Sale', icon: Icons.point_of_sale_outlined, onTap: () => context.push('/sales/new')),
       if (canRecordPayment)
-        QuickActionButton(label: 'Record Payment', icon: Icons.payments_outlined, onTap: () => context.go('/payments/new')),
+        QuickActionButton(label: 'Record Payment', icon: Icons.payments_outlined, onTap: () => context.push('/payments/new')),
       if (canCreateCustomer)
         QuickActionButton(label: 'Add Customer', icon: Icons.person_add_alt_1_outlined, onTap: () => showCustomerFormDialog(context)),
     ];
@@ -283,7 +283,7 @@ class _RecentActivitySection extends ConsumerWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             const Text('Recent Activity', style: AppTextStyles.heading3),
-            TextButton(onPressed: () => context.go('/sales'), child: const Text('View all')),
+            TextButton(onPressed: () => context.push('/sales'), child: const Text('View all')),
           ],
         ),
         salesAsync.when(
@@ -318,7 +318,7 @@ class _RecentActivitySection extends ConsumerWidget {
                           StatusBadge(label: recent[i].paymentStatus, color: _statusColor(recent[i].paymentStatus)),
                         ],
                       ),
-                      onTap: () => context.go('/sales/${recent[i].id}'),
+                      onTap: () => context.push('/sales/${recent[i].id}'),
                     ),
                   ],
                 ],

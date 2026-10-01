@@ -57,7 +57,7 @@ class DeliveryDashboardView extends ConsumerWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             const Text('My Picklists', style: AppTextStyles.heading3),
-            TextButton(onPressed: () => context.go('/picklists'), child: const Text('View all')),
+            TextButton(onPressed: () => context.push('/picklists'), child: const Text('View all')),
           ],
         ),
         picklistsAsync.when(
@@ -89,7 +89,7 @@ class DeliveryDashboardView extends ConsumerWidget {
                     trailing: counts.pending == 0
                         ? const StatusBadge(label: 'Done', color: AppColors.success)
                         : StatusBadge(label: '${counts.pending} pending', color: AppColors.warning),
-                    onTap: () => context.go('/picklists/${picklist.id}'),
+                    onTap: () => context.push('/picklists/${picklist.id}'),
                   ),
                 );
               }).toList(),
@@ -142,7 +142,7 @@ class DeliveryDashboardView extends ConsumerWidget {
                         title: Text(sale.customerName),
                         subtitle: Text('${sale.invoiceNumber ?? 'No invoice'} · ${Formatters.date(sale.saleDate)}'),
                         trailing: StatusBadge(label: sale.paymentStatus, color: _statusColor(sale.paymentStatus)),
-                        onTap: () => context.go('/sales/${sale.id}'),
+                        onTap: () => context.push('/sales/${sale.id}'),
                       ),
                     ),
                   )

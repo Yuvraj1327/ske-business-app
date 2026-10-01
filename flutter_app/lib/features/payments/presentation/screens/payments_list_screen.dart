@@ -73,7 +73,7 @@ class PaymentsListScreen extends ConsumerWidget {
               ElevatedButton.icon(
                 icon: const Icon(Icons.add, size: 18),
                 label: const Text('Record Payment'),
-                onPressed: () => context.go('/payments/new'),
+                onPressed: () => context.push('/payments/new'),
               ),
             ],
           ),

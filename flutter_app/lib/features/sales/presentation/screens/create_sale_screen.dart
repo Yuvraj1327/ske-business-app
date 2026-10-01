@@ -94,7 +94,7 @@ class _CreateSaleScreenState extends ConsumerState<CreateSaleScreen> {
 
     if (sale != null) {
       ref.read(draftSaleItemsProvider.notifier).clear();
-      context.go('/sales/${sale.id}');
+      context.pushReplacement('/sales/${sale.id}');
     } else {
       final state = ref.read(saleMutationControllerProvider);
       final failure = state.hasError ? state.error as Failure : Failure.unknown();
