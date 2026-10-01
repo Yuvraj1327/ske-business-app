@@ -3,7 +3,9 @@
 .flutter-plugins
 .flutter-plugins-dependencies
 .packages
-build/
+# Ignore build output except the Flutter Web release served by Vercel (build/web).
+build/*
+!build/web/
 .idea/
 *.iml
 .vscode/
