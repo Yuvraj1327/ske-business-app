@@ -1,4 +1,4 @@
-// Vercel build step for the prebuilt Flutter Web bundle in build/web.
+// Vercel build step for the prebuilt Flutter Web bundle in web_build.
 //
 // The app reads its public config from the bundled asset `assets/.env`
 // (flutter_dotenv). That file is deliberately NOT committed to Git, so on
@@ -11,11 +11,11 @@
 import { existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-const outputDir = process.argv[2] ?? 'build/web';
+const outputDir = process.argv[2] ?? 'web_build';
 const required = ['SUPABASE_URL', 'SUPABASE_ANON_KEY', 'API_BASE_URL'];
 
 if (!existsSync(join(outputDir, 'index.html'))) {
-  console.error(`No Flutter Web build found at ${outputDir}/index.html — commit build/web.`);
+  console.error(`No Flutter Web build found at ${outputDir}/index.html — commit web_build.`);
   process.exit(1);
 }
 

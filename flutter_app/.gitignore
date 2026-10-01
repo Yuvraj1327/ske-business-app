@@ -3,9 +3,9 @@
 .flutter-plugins
 .flutter-plugins-dependencies
 .packages
-# Ignore build output except the Flutter Web release served by Vercel (build/web).
-build/*
-!build/web/
+# Ignore Flutter build output. The Flutter Web release served by Vercel is
+# committed separately in web_build/.
+build/
 .idea/
 *.iml
 .vscode/

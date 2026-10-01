@@ -1,5 +1,5 @@
 {
   "buildCommand": "node scripts/vercel-write-env.mjs",
-  "outputDirectory": "build/web",
+  "outputDirectory": "web_build",
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }
