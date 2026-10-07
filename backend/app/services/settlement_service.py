@@ -40,7 +40,7 @@ from app.core.security import CurrentUser
 from app.models.customer import Customer
 from app.models.settlement import SettlementSheet, SettlementSheetItem
 from app.models.user import User
-from app.repositories.picklist_repo import PicklistRepository
+from app.repositories.picklist_repo import SETTLEMENT_FIELD_BY_MODE, PicklistRepository
 from app.repositories.settlement_repo import SettlementRepository
 from app.schemas.common import money_str
 from app.schemas.settlement import (
@@ -232,11 +232,14 @@ class SettlementService:
                 )
             )
 
-        # Cheque starts from the Picklist's cheque total unless the caller
-        # supplied a value; it stays editable afterwards via update_sheet.
-        cheque_amount = payload.cheque_amount
-        if cheque_amount is None:
-            cheque_amount = await PicklistRepository(self.db).cheque_total_by_picklist_no(payload.pick_sheet_no)
+        # Cash / Online / Cheque / Credit Bills start from the Picklist's
+        # totals unless the caller supplied a value; they stay editable
+        # afterwards via update_sheet and never write back to the picklist.
+        picklist_totals = await PicklistRepository(self.db).collection_totals_by_picklist_no(payload.pick_sheet_no)
+        collected = {
+            field: (getattr(payload, field) if getattr(payload, field) is not None else picklist_totals[mode])
+            for mode, field in SETTLEMENT_FIELD_BY_MODE.items()
+        }
 
         sheet_no = await self._generate_sheet_no(payload.sheet_date)
         sheet = SettlementSheet(
@@ -251,10 +254,10 @@ class SettlementService:
             returns_amount=payload.returns_amount,
             damage_return_amount=payload.damage_return_amount,
             discount_amount=payload.discount_amount,
-            cash_amount=payload.cash_amount,
-            online_amount=payload.online_amount,
-            cheque_amount=cheque_amount,
-            credit_bills_amount=payload.credit_bills_amount,
+            cash_amount=collected["cash_amount"],
+            online_amount=collected["online_amount"],
+            cheque_amount=collected["cheque_amount"],
+            credit_bills_amount=collected["credit_bills_amount"],
             old_short_amount=payload.old_short_amount,
             created_by=current_user.id,
         )
@@ -309,15 +312,18 @@ class SettlementService:
 
         updates = payload.model_dump(exclude={"delivery_agent_id", "salesman_ids"}, exclude_unset=True)
 
-        # Re-pointing the sheet at a different Picklist without sending a
-        # Cheque value carries the new picklist's cheque total across — but
-        # only if Cheque still holds the old picklist's value (i.e. Admin
-        # hasn't overridden it).
+        # Re-pointing the sheet at a different Picklist carries that
+        # picklist's totals across for every field not sent in this request —
+        # but only for fields still holding the old picklist's value (i.e.
+        # Admin hasn't overridden them).
         new_pick_no = updates.get("pick_sheet_no")
-        if "pick_sheet_no" in updates and new_pick_no != sheet.pick_sheet_no and "cheque_amount" not in updates:
+        if "pick_sheet_no" in updates and new_pick_no != sheet.pick_sheet_no:
             picklists = PicklistRepository(self.db)
-            if sheet.cheque_amount == await picklists.cheque_total_by_picklist_no(sheet.pick_sheet_no):
-                updates["cheque_amount"] = await picklists.cheque_total_by_picklist_no(new_pick_no)
+            old_totals = await picklists.collection_totals_by_picklist_no(sheet.pick_sheet_no)
+            new_totals = await picklists.collection_totals_by_picklist_no(new_pick_no)
+            for mode, field in SETTLEMENT_FIELD_BY_MODE.items():
+                if field not in updates and getattr(sheet, field) == old_totals[mode]:
+                    updates[field] = new_totals[mode]
 
         for field, value in updates.items():
             setattr(sheet, field, value)

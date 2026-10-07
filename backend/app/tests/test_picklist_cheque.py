@@ -65,8 +65,8 @@ def test_item_response_includes_cheque_amount():
 
 @pytest.mark.asyncio
 async def test_picklist_response_counts_and_totals_cheque_rows():
-    def row(status, cheque):
-        return SimpleNamespace(status=status, cheque_amount=Decimal(cheque))
+    def row(status, payable, cheque="0"):
+        return SimpleNamespace(status=status, amount_payable=Decimal(payable), cheque_amount=Decimal(cheque))
 
     picklist = SimpleNamespace(
         id=uuid.uuid4(),
@@ -75,11 +75,19 @@ async def test_picklist_response_counts_and_totals_cheque_rows():
         psr_route=None,
         total_amount=Decimal("3000"),
         created_at="2026-10-07T00:00:00Z",
-        items=[row("cheque", "400"), row("cheque", "600.50"), row("cash", "0"), row("pending", "0")],
+        items=[
+            row("cheque", "900", "400"),
+            row("cheque", "700", "600.50"),
+            row("cash", "300"),
+            row("pending", "100"),
+        ],
     )
     service = PicklistService.__new__(PicklistService)
     response = await service._build_response(picklist, {})
     assert response.cheque_total == "1000.50"
+    assert response.cash_total == "300.00"
+    assert response.online_total == "0.00"
+    assert response.credit_total == "0.00"
     assert response.counts.cheque == 2
     assert response.counts.cash == 1
     assert response.counts.pending == 1

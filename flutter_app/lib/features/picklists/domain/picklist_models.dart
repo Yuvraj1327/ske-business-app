@@ -39,7 +39,12 @@ class Picklist extends Equatable {
   final String deliveryAgentName;
   final String? psrRoute;
   final double totalAmount;
-  final double chequeTotal; // sum of cheque amounts entered on this picklist's rows
+  // Totals saved on this picklist's rows per collection mode — what a
+  // Settlement Sheet with this Pick Sheet No. starts its amounts from.
+  final double cashTotal;
+  final double onlineTotal;
+  final double creditTotal;
+  final double chequeTotal; // sum of the cheque amounts entered
   final DateTime createdAt;
   final PicklistCounts counts;
 
@@ -50,6 +55,9 @@ class Picklist extends Equatable {
     required this.deliveryAgentName,
     this.psrRoute,
     required this.totalAmount,
+    this.cashTotal = 0,
+    this.onlineTotal = 0,
+    this.creditTotal = 0,
     this.chequeTotal = 0,
     required this.createdAt,
     required this.counts,
@@ -63,6 +71,9 @@ class Picklist extends Equatable {
       deliveryAgentName: json['delivery_agent_name'] as String,
       psrRoute: json['psr_route'] as String?,
       totalAmount: double.parse(json['total_amount'] as String),
+      cashTotal: double.parse(json['cash_total'] as String? ?? '0'),
+      onlineTotal: double.parse(json['online_total'] as String? ?? '0'),
+      creditTotal: double.parse(json['credit_total'] as String? ?? '0'),
       chequeTotal: double.parse(json['cheque_total'] as String? ?? '0'),
       createdAt: DateTime.parse(json['created_at'] as String),
       counts: PicklistCounts.fromJson(json['counts'] as Map<String, dynamic>),
@@ -71,7 +82,7 @@ class Picklist extends Equatable {
 
   @override
   List<Object?> get props =>
-      [id, picklistNo, deliveryAgentId, deliveryAgentName, psrRoute, totalAmount, chequeTotal, createdAt, counts];
+      [id, picklistNo, deliveryAgentId, deliveryAgentName, psrRoute, totalAmount, cashTotal, onlineTotal, creditTotal, chequeTotal, createdAt, counts];
 }
 
 class PicklistItem extends Equatable {
@@ -155,6 +166,9 @@ class PicklistDetail extends Picklist {
     required super.deliveryAgentName,
     super.psrRoute,
     required super.totalAmount,
+    super.cashTotal,
+    super.onlineTotal,
+    super.creditTotal,
     super.chequeTotal,
     required super.createdAt,
     required super.counts,
@@ -170,6 +184,9 @@ class PicklistDetail extends Picklist {
       deliveryAgentName: base.deliveryAgentName,
       psrRoute: base.psrRoute,
       totalAmount: base.totalAmount,
+      cashTotal: base.cashTotal,
+      onlineTotal: base.onlineTotal,
+      creditTotal: base.creditTotal,
       chequeTotal: base.chequeTotal,
       createdAt: base.createdAt,
       counts: base.counts,

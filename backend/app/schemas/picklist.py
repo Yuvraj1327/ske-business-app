@@ -63,8 +63,12 @@ class PicklistResponse(BaseModel):
     delivery_agent_name: str
     psr_route: str | None
     total_amount: str
-    # Sum of the cheque amounts entered on this picklist's rows — the value
-    # a Settlement Sheet with this Pick Sheet No. starts its Cheque from.
+    # Totals saved on this picklist's rows, per collection mode — the values a
+    # Settlement Sheet with this Pick Sheet No. starts its Cash / Online /
+    # Credit Bills / Cheque from (cheque = sum of the cheque amounts entered).
+    cash_total: str
+    online_total: str
+    credit_total: str
     cheque_total: str
     created_at: datetime
     counts: PicklistSummaryCounts

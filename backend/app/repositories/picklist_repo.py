@@ -9,6 +9,17 @@ from app.models.picklist import Picklist, PicklistItem
 from app.utils.pagination import PaginationParams, paginate
 
 
+# Picklist collection mode -> the Settlement Sheet header field it pre-fills.
+# The sheet values are only starting points: they stay editable and editing
+# them never touches the picklist rows.
+SETTLEMENT_FIELD_BY_MODE = {
+    "cash": "cash_amount",
+    "online": "online_amount",
+    "credit": "credit_bills_amount",
+    "cheque": "cheque_amount",
+}
+
+
 class PicklistRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -23,18 +34,28 @@ class PicklistRepository:
         result = await self.db.execute(select(Picklist).where(Picklist.picklist_no == picklist_no))
         return result.scalar_one_or_none()
 
-    async def cheque_total_by_picklist_no(self, picklist_no: str | None) -> Decimal:
-        """Sum of the cheque amounts entered on the picklist with this number
-        (0 if there is no such picklist or no cheque rows). A Settlement
-        Sheet's `pick_sheet_no` is what links it to a picklist."""
+    async def collection_totals_by_picklist_no(self, picklist_no: str | None) -> dict[str, Decimal]:
+        """Totals saved on the picklist with this number, per collection mode
+        (all 0 if there is no such picklist): cash / online / credit are the
+        sums of the rows' amount payable marked that way, cheque the sum of
+        the cheque amounts entered. A Settlement Sheet's `pick_sheet_no` is
+        what links it to a picklist."""
+        totals = {mode: Decimal("0") for mode in SETTLEMENT_FIELD_BY_MODE}
         if not picklist_no:
-            return Decimal("0")
+            return totals
         result = await self.db.execute(
-            select(func.coalesce(func.sum(PicklistItem.cheque_amount), 0))
+            select(
+                PicklistItem.status,
+                func.coalesce(func.sum(PicklistItem.amount_payable), 0),
+                func.coalesce(func.sum(PicklistItem.cheque_amount), 0),
+            )
             .join(Picklist, Picklist.id == PicklistItem.picklist_id)
-            .where(Picklist.picklist_no == picklist_no, PicklistItem.status == "cheque")
+            .where(Picklist.picklist_no == picklist_no, PicklistItem.status.in_(list(totals)))
+            .group_by(PicklistItem.status)
         )
-        return Decimal(result.scalar_one())
+        for status, payable, cheque in result.all():
+            totals[status] = Decimal(cheque if status == "cheque" else payable)
+        return totals
 
     async def list_picklists(self, pagination: PaginationParams, delivery_agent_id: uuid.UUID | None):
         stmt = select(Picklist).order_by(Picklist.created_at.desc())

@@ -42,29 +42,38 @@ class _CreateSettlementScreenState extends ConsumerState<CreateSettlementScreen>
   final _oldShortAmountController = TextEditingController(text: '0');
   final List<DraftSettlementRow> _rows = [];
 
-  // Cheque starts from the chosen Picklist's cheque total, until Admin types
-  // their own value — after that it is never overwritten.
-  bool _chequeEdited = false;
+  // Cash / Online / Credit Bills / Cheque start from the chosen Picklist's
+  // saved totals, each until Admin types their own value — after that that
+  // field is never overwritten.
+  final Set<TextEditingController> _editedAmounts = {};
 
   @override
   void initState() {
     super.initState();
-    _pickSheetNoController.addListener(_prefillChequeFromPicklist);
+    _pickSheetNoController.addListener(_prefillFromPicklist);
   }
 
-  void _prefillChequeFromPicklist() {
-    if (_chequeEdited) return;
+  void _prefillFromPicklist() {
     final picklists = ref.read(picklistsListProvider).valueOrNull?.items ?? const [];
     final pickNo = _pickSheetNoController.text.trim();
     final match = picklists.where((p) => p.picklistNo == pickNo);
-    final value = match.isEmpty ? 0.0 : match.first.chequeTotal;
-    final text = value.toStringAsFixed(2);
-    if (_chequeController.text != text) _chequeController.text = text;
+    final picked = match.isEmpty ? null : match.first;
+    final prefill = {
+      _cashController: picked?.cashTotal ?? 0.0,
+      _onlineController: picked?.onlineTotal ?? 0.0,
+      _creditBillsAmountController: picked?.creditTotal ?? 0.0,
+      _chequeController: picked?.chequeTotal ?? 0.0,
+    };
+    prefill.forEach((controller, value) {
+      if (_editedAmounts.contains(controller)) return;
+      final text = value.toStringAsFixed(2);
+      if (controller.text != text) controller.text = text;
+    });
   }
 
   @override
   void dispose() {
-    _pickSheetNoController.removeListener(_prefillChequeFromPicklist);
+    _pickSheetNoController.removeListener(_prefillFromPicklist);
     _notesController.dispose();
     _pickSheetNoController.dispose();
     _pickSheetValueController.dispose();
@@ -271,25 +280,28 @@ class _CreateSettlementScreenState extends ConsumerState<CreateSettlementScreen>
                         label: 'Cash',
                         controller: _cashController,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        onChanged: (_) => _editedAmounts.add(_cashController),
                       ),
                       const SizedBox(height: 14),
                       AppTextField(
                         label: 'Online / Bank / UPI',
                         controller: _onlineController,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        onChanged: (_) => _editedAmounts.add(_onlineController),
                       ),
                       const SizedBox(height: 14),
                       AppTextField(
                         label: 'Cheque',
                         controller: _chequeController,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        onChanged: (_) => _chequeEdited = true,
+                        onChanged: (_) => _editedAmounts.add(_chequeController),
                       ),
                       const SizedBox(height: 14),
                       AppTextField(
                         label: 'Credit Bills',
                         controller: _creditBillsAmountController,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        onChanged: (_) => _editedAmounts.add(_creditBillsAmountController),
                       ),
                       const SizedBox(height: 14),
                       AppTextField(

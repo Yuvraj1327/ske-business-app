@@ -233,10 +233,31 @@ class _SettlementSummaryCard extends ConsumerStatefulWidget {
 class _SettlementSummaryCardState extends ConsumerState<_SettlementSummaryCard> {
   bool _editing = false;
 
-  // Cheque is only sent when Admin actually changed it, so re-pointing the
-  // sheet at another Picklist lets the backend carry that picklist's cheque
-  // total across (see SettlementService.update_sheet).
-  bool _chequeEdited = false;
+  // Cash / Online / Credit Bills / Cheque are only sent when Admin actually
+  // changed them, so re-pointing the sheet at another Picklist lets the
+  // backend carry that picklist's totals across for the untouched ones (see
+  // SettlementService.update_sheet).
+  final Set<TextEditingController> _editedAmounts = {};
+
+  /// Opens the edit form on the latest saved values (the controllers are
+  /// created once, but the sheet can have changed since — e.g. a picklist
+  /// confirm pre-filled an amount).
+  void _startEditing() {
+    final s = widget.sheet;
+    _pickSheetNoController.text = s.pickSheetNo ?? '';
+    _pickSheetValueController.text = s.pickSheetValue.toStringAsFixed(2);
+    _returnsAmountController.text = s.returnsAmount.toStringAsFixed(2);
+    _damageReturnAmountController.text = s.damageReturnAmount.toStringAsFixed(2);
+    _discountAmountController.text = s.discountAmount.toStringAsFixed(2);
+    _cashController.text = s.cashAmount.toStringAsFixed(2);
+    _onlineController.text = s.onlineAmount.toStringAsFixed(2);
+    _chequeController.text = s.chequeAmount.toStringAsFixed(2);
+    _creditBillsAmountController.text = s.creditBillsAmount.toStringAsFixed(2);
+    _oldShortAmountController.text = s.oldShortAmount.toStringAsFixed(2);
+    _notesController.text = s.notes ?? '';
+    _editedAmounts.clear();
+    setState(() => _editing = true);
+  }
 
   late final TextEditingController _pickSheetNoController =
       TextEditingController(text: widget.sheet.pickSheetNo ?? '');
@@ -287,17 +308,18 @@ class _SettlementSummaryCardState extends ConsumerState<_SettlementSummaryCard> 
           returnsAmount: _num(_returnsAmountController),
           damageReturnAmount: _num(_damageReturnAmountController),
           discountAmount: _num(_discountAmountController),
-          cashAmount: _num(_cashController),
-          onlineAmount: _num(_onlineController),
-          chequeAmount: _chequeEdited ? _num(_chequeController) : null,
-          creditBillsAmount: _num(_creditBillsAmountController),
+          cashAmount: _editedAmounts.contains(_cashController) ? _num(_cashController) : null,
+          onlineAmount: _editedAmounts.contains(_onlineController) ? _num(_onlineController) : null,
+          chequeAmount: _editedAmounts.contains(_chequeController) ? _num(_chequeController) : null,
+          creditBillsAmount:
+              _editedAmounts.contains(_creditBillsAmountController) ? _num(_creditBillsAmountController) : null,
           oldShortAmount: _num(_oldShortAmountController),
         );
     if (!mounted) return;
     if (success) {
       setState(() {
         _editing = false;
-        _chequeEdited = false;
+        _editedAmounts.clear();
       });
     } else {
       _showError();
@@ -331,7 +353,7 @@ class _SettlementSummaryCardState extends ConsumerState<_SettlementSummaryCard> 
                   IconButton(
                     icon: const Icon(Icons.edit_outlined),
                     tooltip: 'Edit settlement details',
-                    onPressed: () => setState(() => _editing = true),
+                    onPressed: _startEditing,
                   ),
               ],
             ),
@@ -387,25 +409,28 @@ class _SettlementSummaryCardState extends ConsumerState<_SettlementSummaryCard> 
                 label: 'Cash',
                 controller: _cashController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                onChanged: (_) => _editedAmounts.add(_cashController),
               ),
               const SizedBox(height: 12),
               AppTextField(
                 label: 'Online / Bank / UPI',
                 controller: _onlineController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                onChanged: (_) => _editedAmounts.add(_onlineController),
               ),
               const SizedBox(height: 12),
               AppTextField(
                 label: 'Cheque',
                 controller: _chequeController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                onChanged: (_) => _chequeEdited = true,
+                onChanged: (_) => _editedAmounts.add(_chequeController),
               ),
               const SizedBox(height: 12),
               AppTextField(
                 label: 'Credit Bills',
                 controller: _creditBillsAmountController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                onChanged: (_) => _editedAmounts.add(_creditBillsAmountController),
               ),
               const SizedBox(height: 12),
               AppTextField(

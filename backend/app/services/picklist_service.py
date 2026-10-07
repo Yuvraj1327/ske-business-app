@@ -18,8 +18,10 @@ orchestration):
      reuses `recompute_sale_paid_amount` from sale_service.py, the exact same
      function every other payment in the app goes through. Cheque stores the
      entered amount on the row (no Payment — a cheque only counts as paid once
-     cleared, via the existing Payments screen) and feeds the picklist's cheque
-     total into any open Settlement Sheet with the same Pick Sheet No.
+     cleared, via the existing Payments screen). Every confirm feeds the
+     picklist's Cash / Online / Credit / Cheque totals into the matching
+     fields of any open Settlement Sheet with the same Pick Sheet No. (as
+     editable starting values — see _sync_settlement_totals).
      Credit records the Salesman the Delivery Agent picked to handle that
      Credit/Udhaar customer, and makes it the customer's (and sale's) assigned
      salesman — the field the existing Settlement / Salesman credit views and
@@ -41,7 +43,7 @@ from app.models.picklist import Picklist
 from app.models.product import Product
 from app.models.sale import Sale, SaleItem
 from app.models.user import User
-from app.repositories.picklist_repo import PicklistRepository
+from app.repositories.picklist_repo import SETTLEMENT_FIELD_BY_MODE, PicklistRepository
 from app.repositories.salesman_repo import SalesmanRepository
 from app.repositories.settlement_repo import SettlementRepository
 from app.schemas.common import money_str
@@ -184,11 +186,13 @@ class PicklistService:
             agent = agent_result.scalar_one_or_none()
 
         counts = {"pending": 0, "cash": 0, "online": 0, "credit": 0, "cheque": 0}
-        cheque_total = Decimal("0")
+        totals = {"cash": Decimal("0"), "online": Decimal("0"), "credit": Decimal("0"), "cheque": Decimal("0")}
         for item in picklist.items:
             counts[item.status] = counts.get(item.status, 0) + 1
             if item.status == "cheque":
-                cheque_total += item.cheque_amount
+                totals["cheque"] += item.cheque_amount
+            elif item.status in totals:
+                totals[item.status] += item.amount_payable
 
         return PicklistResponse(
             id=picklist.id,
@@ -197,7 +201,10 @@ class PicklistService:
             delivery_agent_name=agent.full_name if agent else "",
             psr_route=picklist.psr_route,
             total_amount=money_str(picklist.total_amount),
-            cheque_total=money_str(cheque_total),
+            cash_total=money_str(totals["cash"]),
+            online_total=money_str(totals["online"]),
+            credit_total=money_str(totals["credit"]),
+            cheque_total=money_str(totals["cheque"]),
             created_at=picklist.created_at,
             counts=PicklistSummaryCounts(total=len(picklist.items), **counts),
         )
@@ -241,6 +248,10 @@ class PicklistService:
                 raise ValidationError("Selected salesman was not found or is inactive.", field="salesman_id")
 
         try:
+            # Picklist totals before this confirm, so the settlement sync can
+            # tell which sheet values are still the untouched pre-fill.
+            previous_totals = await self.picklists.collection_totals_by_picklist_no(item.picklist.picklist_no)
+
             if status in _STATUS_TO_PAYMENT_METHOD:
                 payment = Payment(
                     customer_id=item.customer_id,
@@ -268,9 +279,7 @@ class PicklistService:
             # Payment is created — cheque payments need cheque number/date/
             # bank and only count as paid once cleared, which the existing
             # Payments screen handles. The unpaid remainder stays outstanding.
-            previous_cheque_total = Decimal("0")
             if status == "cheque":
-                previous_cheque_total = await self.picklists.cheque_total_by_picklist_no(item.picklist.picklist_no)
                 item.cheque_amount = cheque_amount
 
             item.status = status
@@ -278,8 +287,7 @@ class PicklistService:
             item.collected_at = datetime.utcnow()
             await self.picklists.save_item(item)
 
-            if status == "cheque":
-                await self._sync_settlement_cheque(item.picklist.picklist_no, previous_cheque_total)
+            await self._sync_settlement_totals(item.picklist.picklist_no, previous_totals)
             if salesman is not None:
                 await self._sync_settlement_salesman(item.picklist.picklist_no, salesman)
             await self.db.commit()
@@ -290,17 +298,19 @@ class PicklistService:
         await self.db.refresh(item)
         return PicklistItemResponse.from_model(item)
 
-    async def _sync_settlement_cheque(self, picklist_no: str, previous_total: Decimal) -> None:
-        """Keeps the Settlement Sheet's Cheque equal to the picklist's cheque
-        total — but only while it still holds the value the picklist had
-        before this change. A sheet whose Cheque Admin has edited to
-        something else is left alone, and completed sheets are never touched
-        (the Cheque field stays freely editable via the existing sheet
-        update)."""
-        new_total = await self.picklists.cheque_total_by_picklist_no(picklist_no)
+    async def _sync_settlement_totals(self, picklist_no: str, previous_totals: dict[str, Decimal]) -> None:
+        """Keeps each open Settlement Sheet's Cash / Online / Credit Bills /
+        Cheque equal to the picklist's totals — per field, and only while that
+        field still holds the value the picklist had before this change. A
+        value Admin has edited to something else is left alone, completed
+        sheets are never touched, and the picklist rows are never written to
+        from the settlement side (the fields stay freely editable via the
+        existing sheet update)."""
+        new_totals = await self.picklists.collection_totals_by_picklist_no(picklist_no)
         for sheet in await SettlementRepository(self.db).list_open_by_pick_sheet_no(picklist_no):
-            if sheet.cheque_amount == previous_total:
-                sheet.cheque_amount = new_total
+            for mode, field in SETTLEMENT_FIELD_BY_MODE.items():
+                if getattr(sheet, field) == previous_totals[mode]:
+                    setattr(sheet, field, new_totals[mode])
         await self.db.flush()
 
     async def _assign_credit_salesman(self, item, salesman: User) -> None:

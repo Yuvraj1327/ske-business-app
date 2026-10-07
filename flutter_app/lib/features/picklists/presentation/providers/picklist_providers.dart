@@ -84,10 +84,10 @@ class PicklistMutationController extends AsyncNotifier<void> {
           .confirmItem(itemId, status, chequeAmount: chequeAmount, salesmanId: salesmanId);
       ref.invalidate(picklistDetailProvider(picklistId));
       ref.invalidate(picklistsListProvider);
-      // A cheque feeds the Settlement Sheet's Cheque value and a credit adds
-      // its salesman to the sheet (see PicklistService._sync_settlement_*),
-      // so refresh sheets too.
-      if (status == 'cheque' || status == 'credit') ref.invalidate(settlementsListProvider);
+      // Every confirm feeds the Settlement Sheet's Cash / Online / Credit
+      // Bills / Cheque pre-fill, and a credit adds its salesman to the sheet
+      // (see PicklistService._sync_settlement_*), so refresh sheets too.
+      ref.invalidate(settlementsListProvider);
       state = const AsyncData(null);
       return true;
     } on Failure catch (f) {
