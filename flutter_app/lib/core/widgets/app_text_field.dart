@@ -14,6 +14,7 @@ class AppTextField extends StatelessWidget {
     this.enabled = true,
     this.suffixIcon,
     this.maxLines = 1,
+    this.onChanged,
   });
 
   final String label;
@@ -25,6 +26,7 @@ class AppTextField extends StatelessWidget {
   final bool enabled;
   final Widget? suffixIcon;
   final int maxLines;
+  final ValueChanged<String>? onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -40,6 +42,7 @@ class AppTextField extends StatelessWidget {
           validator: validator,
           enabled: enabled,
           maxLines: maxLines,
+          onChanged: onChanged,
           decoration: InputDecoration(hintText: hintText, suffixIcon: suffixIcon),
         ),
       ],

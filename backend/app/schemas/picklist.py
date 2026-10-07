@@ -1,7 +1,8 @@
 import uuid
 from datetime import datetime
+from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.schemas.common import money_str
 
@@ -18,7 +19,10 @@ class PicklistItemResponse(BaseModel):
     amount_payable: str
     customer_id: uuid.UUID | None
     sale_id: uuid.UUID | None
-    status: str  # pending | cash | online | credit
+    status: str  # pending | cash | online | credit | cheque
+    cheque_amount: str
+    credit_salesman_id: uuid.UUID | None = None
+    credit_salesman_name: str | None = None
     collected_at: datetime | None
 
     @classmethod
@@ -34,6 +38,9 @@ class PicklistItemResponse(BaseModel):
             customer_id=item.customer_id,
             sale_id=item.sale_id,
             status=item.status,
+            cheque_amount=money_str(item.cheque_amount),
+            credit_salesman_id=item.credit_salesman_id,
+            credit_salesman_name=item.credit_salesman.full_name if item.credit_salesman else None,
             collected_at=item.collected_at,
         )
 
@@ -44,6 +51,7 @@ class PicklistSummaryCounts(BaseModel):
     cash: int
     online: int
     credit: int
+    cheque: int = 0
 
 
 class PicklistResponse(BaseModel):
@@ -55,6 +63,9 @@ class PicklistResponse(BaseModel):
     delivery_agent_name: str
     psr_route: str | None
     total_amount: str
+    # Sum of the cheque amounts entered on this picklist's rows — the value
+    # a Settlement Sheet with this Pick Sheet No. starts its Cheque from.
+    cheque_total: str
     created_at: datetime
     counts: PicklistSummaryCounts
 
@@ -71,12 +82,32 @@ class PicklistListResponse(BaseModel):
     total_pages: int
 
 
+PICKLIST_CONFIRM_STATUSES = {"cash", "online", "credit", "cheque"}
+
+
 class PicklistItemConfirmRequest(BaseModel):
-    status: str  # cash | online | credit
+    status: str  # cash | online | credit | cheque
+    # Required (and only allowed) when status is "cheque".
+    cheque_amount: Decimal | None = Field(default=None, gt=0, max_digits=12, decimal_places=2)
+    # Required (and only allowed) when status is "credit": the Salesman who
+    # will handle this Credit/Udhaar customer.
+    salesman_id: uuid.UUID | None = None
 
     @field_validator("status")
     @classmethod
     def validate_status(cls, v: str) -> str:
-        if v not in {"cash", "online", "credit"}:
-            raise ValueError("status must be one of: cash, online, credit")
+        if v not in PICKLIST_CONFIRM_STATUSES:
+            raise ValueError(f"status must be one of: {', '.join(sorted(PICKLIST_CONFIRM_STATUSES))}")
         return v
+
+    @model_validator(mode="after")
+    def validate_cheque_amount(self) -> "PicklistItemConfirmRequest":
+        if self.status == "cheque" and self.cheque_amount is None:
+            raise ValueError("cheque_amount is required when status is 'cheque'")
+        if self.status != "cheque" and self.cheque_amount is not None:
+            raise ValueError("cheque_amount is only allowed when status is 'cheque'")
+        if self.status == "credit" and self.salesman_id is None:
+            raise ValueError("salesman_id is required when status is 'credit'")
+        if self.status != "credit" and self.salesman_id is not None:
+            raise ValueError("salesman_id is only allowed when status is 'credit'")
+        return self

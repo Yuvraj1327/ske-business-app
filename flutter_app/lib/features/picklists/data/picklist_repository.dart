@@ -20,10 +20,16 @@ class PicklistRepository {
     return PicklistDetail.fromJson(response.data!);
   }
 
-  Future<PicklistItem> confirmItem(String itemId, String status) async {
+  /// [chequeAmount] is required by the backend when [status] is 'cheque',
+  /// [salesmanId] when it is 'credit'.
+  Future<PicklistItem> confirmItem(String itemId, String status, {double? chequeAmount, String? salesmanId}) async {
     final response = await _apiClient.patch<Map<String, dynamic>>(
       '/picklists/items/$itemId/confirm',
-      data: {'status': status},
+      data: {
+        'status': status,
+        if (chequeAmount != null) 'cheque_amount': chequeAmount.toStringAsFixed(2),
+        if (salesmanId != null) 'salesman_id': salesmanId,
+      },
     );
     return PicklistItem.fromJson(response.data!);
   }

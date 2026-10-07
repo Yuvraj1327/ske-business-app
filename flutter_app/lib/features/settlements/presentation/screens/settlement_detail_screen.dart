@@ -233,6 +233,11 @@ class _SettlementSummaryCard extends ConsumerStatefulWidget {
 class _SettlementSummaryCardState extends ConsumerState<_SettlementSummaryCard> {
   bool _editing = false;
 
+  // Cheque is only sent when Admin actually changed it, so re-pointing the
+  // sheet at another Picklist lets the backend carry that picklist's cheque
+  // total across (see SettlementService.update_sheet).
+  bool _chequeEdited = false;
+
   late final TextEditingController _pickSheetNoController =
       TextEditingController(text: widget.sheet.pickSheetNo ?? '');
   late final TextEditingController _pickSheetValueController =
@@ -284,13 +289,16 @@ class _SettlementSummaryCardState extends ConsumerState<_SettlementSummaryCard> 
           discountAmount: _num(_discountAmountController),
           cashAmount: _num(_cashController),
           onlineAmount: _num(_onlineController),
-          chequeAmount: _num(_chequeController),
+          chequeAmount: _chequeEdited ? _num(_chequeController) : null,
           creditBillsAmount: _num(_creditBillsAmountController),
           oldShortAmount: _num(_oldShortAmountController),
         );
     if (!mounted) return;
     if (success) {
-      setState(() => _editing = false);
+      setState(() {
+        _editing = false;
+        _chequeEdited = false;
+      });
     } else {
       _showError();
     }
@@ -391,6 +399,7 @@ class _SettlementSummaryCardState extends ConsumerState<_SettlementSummaryCard> 
                 label: 'Cheque',
                 controller: _chequeController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                onChanged: (_) => _chequeEdited = true,
               ),
               const SizedBox(height: 12),
               AppTextField(

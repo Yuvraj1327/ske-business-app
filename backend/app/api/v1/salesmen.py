@@ -3,7 +3,7 @@ import uuid
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.permissions import require_permission
+from app.core.permissions import require_any_permission, require_permission
 from app.core.security import CurrentUser, get_current_user
 from app.db.session import get_db
 from app.schemas.customer import CustomerListResponse
@@ -25,7 +25,12 @@ router = APIRouter(tags=["salesmen"])
 @router.get("/salesmen", response_model=list[SalesmanResponse])
 async def list_salesmen(
     db: AsyncSession = Depends(get_db),
-    _: CurrentUser = Depends(require_permission("salesmen.manage")),
+    # Active salesmen only. Also open to picklist users, so a Delivery Agent
+    # can pick the Salesman for a Credit row (read-only list; assigning
+    # customers etc. below still needs salesmen.manage).
+    _: CurrentUser = Depends(
+        require_any_permission("salesmen.manage", "picklists.manage", "picklists.view_assigned")
+    ),
 ) -> list[SalesmanResponse]:
     service = SalesmanService(db)
     return await service.list_salesmen()

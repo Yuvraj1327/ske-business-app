@@ -9,7 +9,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base, new_uuid, utcnow
 
 PicklistItemStatusEnum = ENUM(
-    "pending", "cash", "online", "credit", name="picklist_item_status_enum", create_type=False
+    "pending", "cash", "online", "credit", "cheque", name="picklist_item_status_enum", create_type=False
 )
 
 
@@ -48,8 +48,16 @@ class PicklistItem(Base):
     sale_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("sales.id"), nullable=True)
     payment_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("payments.id"), nullable=True)
     status: Mapped[str] = mapped_column(PicklistItemStatusEnum, nullable=False, default="pending")
+    # Amount collected by cheque — only non-zero when status == "cheque".
+    cheque_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
+    # Salesman chosen by the Delivery Agent to handle this Credit/Udhaar row —
+    # only set when status == "credit".
+    credit_salesman_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
     collected_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     collected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     picklist: Mapped["Picklist"] = relationship(back_populates="items")
+    credit_salesman: Mapped["User | None"] = relationship(foreign_keys=[credit_salesman_id], lazy="selectin")

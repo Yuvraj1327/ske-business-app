@@ -39,7 +39,9 @@ class SettlementSheetCreateRequest(BaseModel):
     discount_amount: Decimal = Field(default=Decimal("0"), ge=0)
     cash_amount: Decimal = Field(default=Decimal("0"), ge=0)
     online_amount: Decimal = Field(default=Decimal("0"), ge=0)
-    cheque_amount: Decimal = Field(default=Decimal("0"), ge=0)
+    # Omitted -> starts from the matching Picklist's cheque total (looked up
+    # by `pick_sheet_no`), or 0 if there is none. Always editable afterwards.
+    cheque_amount: Decimal | None = Field(default=None, ge=0)
     credit_bills_amount: Decimal = Field(default=Decimal("0"), ge=0)
     old_short_amount: Decimal = Field(default=Decimal("0"), ge=0)
     # Customer rows are optional at creation — the Delivery Agent can add

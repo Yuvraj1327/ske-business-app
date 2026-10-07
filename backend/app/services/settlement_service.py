@@ -40,6 +40,7 @@ from app.core.security import CurrentUser
 from app.models.customer import Customer
 from app.models.settlement import SettlementSheet, SettlementSheetItem
 from app.models.user import User
+from app.repositories.picklist_repo import PicklistRepository
 from app.repositories.settlement_repo import SettlementRepository
 from app.schemas.common import money_str
 from app.schemas.settlement import (
@@ -231,6 +232,12 @@ class SettlementService:
                 )
             )
 
+        # Cheque starts from the Picklist's cheque total unless the caller
+        # supplied a value; it stays editable afterwards via update_sheet.
+        cheque_amount = payload.cheque_amount
+        if cheque_amount is None:
+            cheque_amount = await PicklistRepository(self.db).cheque_total_by_picklist_no(payload.pick_sheet_no)
+
         sheet_no = await self._generate_sheet_no(payload.sheet_date)
         sheet = SettlementSheet(
             sheet_no=sheet_no,
@@ -246,7 +253,7 @@ class SettlementService:
             discount_amount=payload.discount_amount,
             cash_amount=payload.cash_amount,
             online_amount=payload.online_amount,
-            cheque_amount=payload.cheque_amount,
+            cheque_amount=cheque_amount,
             credit_bills_amount=payload.credit_bills_amount,
             old_short_amount=payload.old_short_amount,
             created_by=current_user.id,
@@ -301,6 +308,17 @@ class SettlementService:
             ]
 
         updates = payload.model_dump(exclude={"delivery_agent_id", "salesman_ids"}, exclude_unset=True)
+
+        # Re-pointing the sheet at a different Picklist without sending a
+        # Cheque value carries the new picklist's cheque total across — but
+        # only if Cheque still holds the old picklist's value (i.e. Admin
+        # hasn't overridden it).
+        new_pick_no = updates.get("pick_sheet_no")
+        if "pick_sheet_no" in updates and new_pick_no != sheet.pick_sheet_no and "cheque_amount" not in updates:
+            picklists = PicklistRepository(self.db)
+            if sheet.cheque_amount == await picklists.cheque_total_by_picklist_no(sheet.pick_sheet_no):
+                updates["cheque_amount"] = await picklists.cheque_total_by_picklist_no(new_pick_no)
+
         for field, value in updates.items():
             setattr(sheet, field, value)
 

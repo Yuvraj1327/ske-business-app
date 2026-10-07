@@ -14,9 +14,16 @@ orchestration):
      already goes through. No parallel "delivery ledger" was built.
 
   2. The Delivery Agent's "confirm this delivery" action (Cash / Online /
-     Credit), which — for Cash/Online — creates a real Payment and reuses
-     `recompute_sale_paid_amount` from sale_service.py, the exact same
-     function every other payment in the app goes through.
+     Credit / Cheque), which — for Cash/Online — creates a real Payment and
+     reuses `recompute_sale_paid_amount` from sale_service.py, the exact same
+     function every other payment in the app goes through. Cheque stores the
+     entered amount on the row (no Payment — a cheque only counts as paid once
+     cleared, via the existing Payments screen) and feeds the picklist's cheque
+     total into any open Settlement Sheet with the same Pick Sheet No.
+     Credit records the Salesman the Delivery Agent picked to handle that
+     Credit/Udhaar customer, and makes it the customer's (and sale's) assigned
+     salesman — the field the existing Settlement / Salesman credit views and
+     scoping already read — so no parallel assignment concept exists.
 """
 import uuid
 from datetime import date, datetime
@@ -35,6 +42,8 @@ from app.models.product import Product
 from app.models.sale import Sale, SaleItem
 from app.models.user import User
 from app.repositories.picklist_repo import PicklistRepository
+from app.repositories.salesman_repo import SalesmanRepository
+from app.repositories.settlement_repo import SettlementRepository
 from app.schemas.common import money_str
 from app.schemas.picklist import PicklistDetailResponse, PicklistItemResponse, PicklistResponse, PicklistSummaryCounts
 from app.services.sale_service import recompute_sale_paid_amount
@@ -174,9 +183,12 @@ class PicklistService:
             agent_result = await self.db.execute(select(User).where(User.id == picklist.delivery_agent_id))
             agent = agent_result.scalar_one_or_none()
 
-        counts = {"pending": 0, "cash": 0, "online": 0, "credit": 0}
+        counts = {"pending": 0, "cash": 0, "online": 0, "credit": 0, "cheque": 0}
+        cheque_total = Decimal("0")
         for item in picklist.items:
             counts[item.status] = counts.get(item.status, 0) + 1
+            if item.status == "cheque":
+                cheque_total += item.cheque_amount
 
         return PicklistResponse(
             id=picklist.id,
@@ -185,11 +197,19 @@ class PicklistService:
             delivery_agent_name=agent.full_name if agent else "",
             psr_route=picklist.psr_route,
             total_amount=money_str(picklist.total_amount),
+            cheque_total=money_str(cheque_total),
             created_at=picklist.created_at,
             counts=PicklistSummaryCounts(total=len(picklist.items), **counts),
         )
 
-    async def confirm_item(self, item_id: uuid.UUID, status: str, current_user: CurrentUser) -> PicklistItemResponse:
+    async def confirm_item(
+        self,
+        item_id: uuid.UUID,
+        status: str,
+        current_user: CurrentUser,
+        cheque_amount: Decimal | None = None,
+        salesman_id: uuid.UUID | None = None,
+    ) -> PicklistItemResponse:
         item = await self.picklists.get_item(item_id)
         if item is None:
             raise NotFoundError("Picklist item not found")
@@ -201,6 +221,24 @@ class PicklistService:
 
         if item.sale_id is None or item.customer_id is None:
             raise ValidationError("This picklist item has no linked sale to record a payment against.")
+
+        if status == "cheque":
+            if cheque_amount is None or cheque_amount <= 0:
+                raise ValidationError("Enter the cheque amount.", field="cheque_amount")
+            if cheque_amount > item.amount_payable:
+                raise ValidationError(
+                    f"Cheque amount ({money_str(cheque_amount)}) cannot exceed the amount payable "
+                    f"({money_str(item.amount_payable)}).",
+                    field="cheque_amount",
+                )
+
+        salesman: User | None = None
+        if status == "credit":
+            if salesman_id is None:
+                raise ValidationError("Select the salesman who will handle this credit.", field="salesman_id")
+            salesman = await SalesmanRepository(self.db).get_salesman(salesman_id)
+            if salesman is None or not salesman.is_active:
+                raise ValidationError("Selected salesman was not found or is inactive.", field="salesman_id")
 
         try:
             if status in _STATUS_TO_PAYMENT_METHOD:
@@ -223,10 +261,27 @@ class PicklistService:
             # outstanding" (business rule from the task brief), reusing the
             # existing outstanding calculation with no extra code.
 
+            if salesman is not None:
+                await self._assign_credit_salesman(item, salesman)
+
+            # status == "cheque": the entered amount is saved on the row. No
+            # Payment is created — cheque payments need cheque number/date/
+            # bank and only count as paid once cleared, which the existing
+            # Payments screen handles. The unpaid remainder stays outstanding.
+            previous_cheque_total = Decimal("0")
+            if status == "cheque":
+                previous_cheque_total = await self.picklists.cheque_total_by_picklist_no(item.picklist.picklist_no)
+                item.cheque_amount = cheque_amount
+
             item.status = status
             item.collected_by = current_user.id
             item.collected_at = datetime.utcnow()
             await self.picklists.save_item(item)
+
+            if status == "cheque":
+                await self._sync_settlement_cheque(item.picklist.picklist_no, previous_cheque_total)
+            if salesman is not None:
+                await self._sync_settlement_salesman(item.picklist.picklist_no, salesman)
             await self.db.commit()
         except Exception:
             await self.db.rollback()
@@ -234,3 +289,39 @@ class PicklistService:
 
         await self.db.refresh(item)
         return PicklistItemResponse.from_model(item)
+
+    async def _sync_settlement_cheque(self, picklist_no: str, previous_total: Decimal) -> None:
+        """Keeps the Settlement Sheet's Cheque equal to the picklist's cheque
+        total — but only while it still holds the value the picklist had
+        before this change. A sheet whose Cheque Admin has edited to
+        something else is left alone, and completed sheets are never touched
+        (the Cheque field stays freely editable via the existing sheet
+        update)."""
+        new_total = await self.picklists.cheque_total_by_picklist_no(picklist_no)
+        for sheet in await SettlementRepository(self.db).list_open_by_pick_sheet_no(picklist_no):
+            if sheet.cheque_amount == previous_total:
+                sheet.cheque_amount = new_total
+        await self.db.flush()
+
+    async def _assign_credit_salesman(self, item, salesman: User) -> None:
+        """Records the chosen salesman on the picklist row and makes them the
+        customer's assigned salesman and the sale's salesman — what the
+        Settlement sheet's Credit/Udhaar access check, the salesman's
+        customer list and the salesman's sales/invoices scoping all read."""
+        item.credit_salesman = salesman
+        customer_result = await self.db.execute(select(Customer).where(Customer.id == item.customer_id))
+        customer = customer_result.scalar_one()
+        customer.assigned_salesman_id = salesman.id
+        sale_result = await self.db.execute(select(Sale).where(Sale.id == item.sale_id))
+        sale = sale_result.scalar_one()
+        sale.salesman_id = salesman.id
+
+    async def _sync_settlement_salesman(self, picklist_no: str, salesman: User) -> None:
+        """A Settlement Sheet only lets its own Salesmen act on credit rows,
+        so add the chosen salesman to any open sheet for this picklist (same
+        Pick Sheet No. link as the cheque sync). Completed sheets and sheets
+        that already include them are left alone."""
+        for sheet in await SettlementRepository(self.db).list_open_by_pick_sheet_no(picklist_no):
+            if salesman.id not in {s.id for s in sheet.salesmen}:
+                sheet.salesmen.append(salesman)
+        await self.db.flush()

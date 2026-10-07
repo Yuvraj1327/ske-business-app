@@ -56,7 +56,7 @@ async def confirm_picklist_item(
     current_user: CurrentUser = Depends(get_current_user),
 ) -> PicklistItemResponse:
     """The Delivery Agent's (or Admin's) confirm action: Cash / Online /
-    Credit for one delivery. See PicklistService.confirm_item for what each
-    outcome does."""
+    Credit (with `salesman_id`) / Cheque (with `cheque_amount`) for one delivery. See
+    PicklistService.confirm_item for what each outcome does."""
     service = PicklistService(db)
-    return await service.confirm_item(item_id, payload.status, current_user)
+    return await service.confirm_item(item_id, payload.status, current_user, payload.cheque_amount, payload.salesman_id)

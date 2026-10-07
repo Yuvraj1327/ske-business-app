@@ -14,7 +14,7 @@ cheques), cash/UPI/bank transactions, sales returns, expenses, salesman
 management, reports, Excel import, an automated test suite, and this
 deployment guide.
 
----
+--- 
 
 ## 1. Prerequisites
 

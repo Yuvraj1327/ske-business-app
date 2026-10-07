@@ -1,6 +1,7 @@
 import uuid
+from decimal import Decimal
 
-from sqlalchemy import Select, select
+from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
@@ -21,6 +22,19 @@ class PicklistRepository:
     async def get_by_picklist_no(self, picklist_no: str) -> Picklist | None:
         result = await self.db.execute(select(Picklist).where(Picklist.picklist_no == picklist_no))
         return result.scalar_one_or_none()
+
+    async def cheque_total_by_picklist_no(self, picklist_no: str | None) -> Decimal:
+        """Sum of the cheque amounts entered on the picklist with this number
+        (0 if there is no such picklist or no cheque rows). A Settlement
+        Sheet's `pick_sheet_no` is what links it to a picklist."""
+        if not picklist_no:
+            return Decimal("0")
+        result = await self.db.execute(
+            select(func.coalesce(func.sum(PicklistItem.cheque_amount), 0))
+            .join(Picklist, Picklist.id == PicklistItem.picklist_id)
+            .where(Picklist.picklist_no == picklist_no, PicklistItem.status == "cheque")
+        )
+        return Decimal(result.scalar_one())
 
     async def list_picklists(self, pagination: PaginationParams, delivery_agent_id: uuid.UUID | None):
         stmt = select(Picklist).order_by(Picklist.created_at.desc())

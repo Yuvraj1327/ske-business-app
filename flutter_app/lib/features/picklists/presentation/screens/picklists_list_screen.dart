@@ -88,6 +88,7 @@ class PicklistsListScreen extends ConsumerWidget {
                                         if (counts.cash > 0) _countChip('${counts.cash} cash', AppColors.success),
                                         if (counts.online > 0) _countChip('${counts.online} online', AppColors.success),
                                         if (counts.credit > 0) _countChip('${counts.credit} credit', AppColors.error),
+                                        if (counts.cheque > 0) _countChip('${counts.cheque} cheque', AppColors.success),
                                         if (allDone) _countChip('All confirmed', AppColors.success),
                                       ],
                                     ),

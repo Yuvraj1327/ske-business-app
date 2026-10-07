@@ -26,6 +26,16 @@ class SettlementRepository:
         result = await self.db.execute(select(SettlementSheet).where(SettlementSheet.sheet_no == sheet_no))
         return result.scalar_one_or_none()
 
+    async def list_open_by_pick_sheet_no(self, pick_sheet_no: str) -> list[SettlementSheet]:
+        """Sheets (not yet 'completed') whose Pick Sheet No. is this picklist
+        number — the sheets a picklist's cheque total flows into."""
+        result = await self.db.execute(
+            select(SettlementSheet).where(
+                SettlementSheet.pick_sheet_no == pick_sheet_no, SettlementSheet.status != "completed"
+            )
+        )
+        return list(result.scalars().all())
+
     async def count_for_date(self, sheet_date: date) -> int:
         result = await self.db.execute(
             select(func.count()).select_from(SettlementSheet).where(SettlementSheet.sheet_date == sheet_date)
