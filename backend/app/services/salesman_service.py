@@ -111,11 +111,15 @@ class TaskService:
         await self.db.commit()
         return await self._build_response(task)
 
-    async def _build_response(self, task: Task) -> TaskResponse:
-        assignee_result = await self.db.execute(select(User).where(User.id == task.assigned_to))
-        assignee = assignee_result.scalar_one()
-        assigner_result = await self.db.execute(select(User).where(User.id == task.assigned_by))
-        assigner = assigner_result.scalar_one()
+    async def _build_response(self, task: Task, users_by_id: dict[uuid.UUID, User] | None = None) -> TaskResponse:
+        assignee = users_by_id.get(task.assigned_to) if users_by_id is not None else None
+        if assignee is None:
+            assignee_result = await self.db.execute(select(User).where(User.id == task.assigned_to))
+            assignee = assignee_result.scalar_one()
+        assigner = users_by_id.get(task.assigned_by) if users_by_id is not None else None
+        if assigner is None:
+            assigner_result = await self.db.execute(select(User).where(User.id == task.assigned_by))
+            assigner = assigner_result.scalar_one()
 
         return TaskResponse(
             id=task.id,
@@ -145,7 +149,12 @@ class TaskService:
             raise PermissionDeniedError("You do not have permission to view another user's tasks.")
 
         items, total = await self.tasks.list_tasks(pagination, assigned_to, status)
-        responses = [await self._build_response(t) for t in items]
+        user_ids = {t.assigned_to for t in items} | {t.assigned_by for t in items}
+        users_by_id: dict[uuid.UUID, User] = {}
+        if user_ids:
+            users_result = await self.db.execute(select(User).where(User.id.in_(user_ids)))
+            users_by_id = {u.id: u for u in users_result.scalars().all()}
+        responses = [await self._build_response(t, users_by_id) for t in items]
         return responses, total
 
     async def update_task_status(self, task_id: uuid.UUID, status: str, current_user: CurrentUser) -> TaskResponse:

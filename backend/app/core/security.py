@@ -31,10 +31,12 @@ from jose import JWTError, jwt
 from loguru import logger
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
 from app.config import get_settings
 from app.core.exceptions import UnauthorizedError
 from app.db.session import get_db
+from app.models.role import Role
 from app.models.user import User
 
 settings = get_settings()
@@ -157,8 +159,14 @@ async def get_current_user(
         logger.warning(f"Auth failed: 'sub' claim '{auth_user_id_str}' is not a valid UUID")
         raise UnauthorizedError("Malformed subject claim") from exc
 
-    result = await db.execute(select(User).where(User.auth_user_id == auth_user_id))
-    user = result.scalar_one_or_none()
+    # Eager-load role + permissions in the same query (instead of the model's
+    # default selectin chain = 3 sequential round trips on every request).
+    result = await db.execute(
+        select(User)
+        .options(joinedload(User.role).joinedload(Role.permissions))
+        .where(User.auth_user_id == auth_user_id)
+    )
+    user = result.unique().scalar_one_or_none()
 
     if user is None:
         # This is the case most likely to be hit by an account created

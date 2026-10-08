@@ -112,8 +112,19 @@ class ReportService:
             result = await self.db.execute(select(Customer).where(Customer.id.in_(customer_ids)))
             customers_by_id = {c.id: c for c in result.scalars().all()}
 
+        cheque_payment_ids = [p.id for p in payments if p.payment_method == "cheque"]
+        cheques_by_payment_id: dict[uuid.UUID, ChequeDetail] = {}
+        if cheque_payment_ids:
+            cheque_result = await self.db.execute(
+                select(ChequeDetail).where(ChequeDetail.payment_id.in_(cheque_payment_ids))
+            )
+            cheques_by_payment_id = {c.payment_id: c for c in cheque_result.scalars().all()}
+
         payment_service_helper = _PaymentResponseBuilder(self.db)
-        items = [await payment_service_helper.build(p, customers_by_id.get(p.customer_id)) for p in payments]
+        items = [
+            await payment_service_helper.build(p, customers_by_id.get(p.customer_id), cheques_by_payment_id)
+            for p in payments
+        ]
 
         return PaymentReportResponse(
             range_start=date_from,
@@ -202,11 +213,16 @@ class _PaymentResponseBuilder:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def build(self, payment, customer) -> PaymentResponse:
+    async def build(self, payment, customer, cheques_by_payment_id=None) -> PaymentResponse:
         cheque_response = None
         if payment.payment_method == "cheque":
-            cheque_result = await self.db.execute(select(ChequeDetail).where(ChequeDetail.payment_id == payment.id))
-            cheque = cheque_result.scalar_one_or_none()
+            if cheques_by_payment_id is not None:
+                cheque = cheques_by_payment_id.get(payment.id)
+            else:
+                cheque_result = await self.db.execute(
+                    select(ChequeDetail).where(ChequeDetail.payment_id == payment.id)
+                )
+                cheque = cheque_result.scalar_one_or_none()
             if cheque:
                 cheque_response = ChequeDetailResponse(
                     cheque_number=cheque.cheque_number,

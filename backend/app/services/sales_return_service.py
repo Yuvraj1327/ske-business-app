@@ -101,9 +101,12 @@ class SalesReturnService:
 
         return await self._build_response(sales_return, sale)
 
-    async def _build_response(self, sales_return: SalesReturn, sale: Sale) -> SalesReturnResponse:
-        customer_result = await self.db.execute(select(Customer).where(Customer.id == sale.customer_id))
-        customer = customer_result.scalar_one()
+    async def _build_response(
+        self, sales_return: SalesReturn, sale: Sale, customer: Customer | None = None
+    ) -> SalesReturnResponse:
+        if customer is None:
+            customer_result = await self.db.execute(select(Customer).where(Customer.id == sale.customer_id))
+            customer = customer_result.scalar_one()
 
         sale_item_ids = [i.sale_item_id for i in sales_return.items]
         product_names: dict[uuid.UUID, str] = {}
@@ -160,9 +163,21 @@ class SalesReturnService:
     ):
         agent_sale_ids = self.picklists.agent_sale_ids(current_user.id) if current_user.is_picklist_agent else None
         items, total = await self.returns.list_returns(pagination, customer_id, sale_id, agent_sale_ids)
+        sales_by_id: dict[uuid.UUID, Sale] = {}
+        customers_by_id: dict[uuid.UUID, Customer] = {}
+        if items:
+            sales_result = await self.db.execute(select(Sale).where(Sale.id.in_({r.sale_id for r in items})))
+            sales_by_id = {s.id: s for s in sales_result.scalars().all()}
+            customers_result = await self.db.execute(
+                select(Customer).where(Customer.id.in_({s.customer_id for s in sales_by_id.values()}))
+            )
+            customers_by_id = {c.id: c for c in customers_result.scalars().all()}
+
         responses = []
         for sales_return in items:
-            sale_result = await self.db.execute(select(Sale).where(Sale.id == sales_return.sale_id))
-            sale = sale_result.scalar_one()
-            responses.append(await self._build_response(sales_return, sale))
+            sale = sales_by_id.get(sales_return.sale_id)
+            if sale is None:
+                sale_result = await self.db.execute(select(Sale).where(Sale.id == sales_return.sale_id))
+                sale = sale_result.scalar_one()
+            responses.append(await self._build_response(sales_return, sale, customers_by_id.get(sale.customer_id)))
         return responses, total
