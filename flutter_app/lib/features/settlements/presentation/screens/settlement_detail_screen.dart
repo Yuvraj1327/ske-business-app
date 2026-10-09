@@ -5,6 +5,7 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/auth/auth_state.dart';
 import '../../../../core/errors/failure.dart';
+import '../../../../core/utils/file_download/export_result.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_text_field.dart';
@@ -62,6 +63,29 @@ class _SettlementDetailScreenState extends ConsumerState<SettlementDetailScreen>
     }
   }
 
+  // Which export button is running (to spin only that one).
+  String? _exportingMode;
+
+  Future<void> _export(SettlementSheetDetail sheet, String mode) async {
+    setState(() => _exportingMode = mode);
+    final result = await ref
+        .read(settlementExportControllerProvider.notifier)
+        .exportXlsx(sheetId: sheet.id, pickSheetNo: sheet.pickSheetNo, mode: mode);
+    if (!mounted) return;
+    setState(() => _exportingMode = null);
+    final messenger = ScaffoldMessenger.of(context);
+    switch (result) {
+      case ExportResult.saved:
+        messenger.showSnackBar(SnackBar(content: Text('${mode == 'online' ? 'Online' : 'Cash'} export downloaded.')));
+      case ExportResult.failed:
+        final error = ref.read(settlementExportControllerProvider).error;
+        final message = error is Failure ? error.message : 'Could not export. Please try again.';
+        messenger.showSnackBar(SnackBar(content: Text(message), backgroundColor: Theme.of(context).colorScheme.error));
+      case ExportResult.cancelled:
+        break;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final detailAsync = ref.watch(settlementDetailProvider(widget.sheetId));
@@ -92,6 +116,27 @@ class _SettlementDetailScreenState extends ConsumerState<SettlementDetailScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 8,
+                  children: [
+                    AppButton(
+                      label: 'Download Online XLSX',
+                      icon: Icons.download_outlined,
+                      expand: false,
+                      isLoading: _exportingMode == 'online',
+                      onPressed: _exportingMode == null ? () => _export(sheet, 'online') : null,
+                    ),
+                    AppButton(
+                      label: 'Download Cash XLSX',
+                      icon: Icons.download_outlined,
+                      expand: false,
+                      isLoading: _exportingMode == 'cash',
+                      onPressed: _exportingMode == null ? () => _export(sheet, 'cash') : null,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
                 _BasicDetailsCard(sheet: sheet),
                 const SizedBox(height: 16),
                 _SettlementSummaryCard(sheet: sheet, isAdmin: isAdmin),

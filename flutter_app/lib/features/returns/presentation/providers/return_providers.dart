@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../../../core/auth/auth_state.dart';
 import '../../../../core/errors/failure.dart';
+import '../../../../core/utils/file_download/export_result.dart';
 import '../../../../core/utils/file_download/file_download.dart';
 import '../../../../shared_models/page.dart';
 import '../../data/return_repository.dart';
@@ -79,31 +80,27 @@ final returnMutationControllerProvider = AsyncNotifierProvider<ReturnMutationCon
   ReturnMutationController.new,
 );
 
-enum ReturnExportResult { saved, cancelled, failed }
-
-const _xlsxMimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-
 /// Downloads every sales return (all pages) as sales_returns_YYYY-MM-DD.xlsx.
 /// `isLoading` drives the button spinner; a failure is left in the state.
 class ReturnExportController extends AsyncNotifier<void> {
   @override
   Future<void> build() async {}
 
-  Future<ReturnExportResult> exportXlsx() async {
-    if (state.isLoading) return ReturnExportResult.cancelled;
+  Future<ExportResult> exportXlsx() async {
+    if (state.isLoading) return ExportResult.cancelled;
     state = const AsyncLoading();
     try {
       final bytes = await ref.read(returnRepositoryProvider).exportReturnsXlsx();
       final fileName = 'sales_returns_${DateFormat('yyyy-MM-dd').format(DateTime.now())}.xlsx';
-      final saved = await saveBytesAsFile(bytes: bytes, fileName: fileName, mimeType: _xlsxMimeType);
+      final saved = await saveBytesAsFile(bytes: bytes, fileName: fileName, mimeType: xlsxMimeType);
       state = const AsyncData(null);
-      return saved ? ReturnExportResult.saved : ReturnExportResult.cancelled;
+      return saved ? ExportResult.saved : ExportResult.cancelled;
     } on Failure catch (f) {
       state = AsyncError(f, StackTrace.current);
-      return ReturnExportResult.failed;
+      return ExportResult.failed;
     } catch (e) {
       state = AsyncError(Failure.unknown(e.toString()), StackTrace.current);
-      return ReturnExportResult.failed;
+      return ExportResult.failed;
     }
   }
 }

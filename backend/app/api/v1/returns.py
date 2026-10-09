@@ -10,7 +10,7 @@ from app.db.session import get_db
 from app.schemas.sales_return import SalesReturnCreateRequest, SalesReturnListResponse, SalesReturnResponse
 from app.services.sales_return_service import SalesReturnService
 from app.utils.pagination import PaginationParams, pagination_params
-from app.utils.sales_return_export import XLSX_MEDIA_TYPE, build_sales_returns_xlsx
+from app.utils.xlsx_export import XLSX_MEDIA_TYPE, build_xlsx
 
 router = APIRouter(prefix="/returns", tags=["returns"])
 
@@ -63,7 +63,7 @@ async def export_returns(
     rows = await SalesReturnService(db).export_rows(customer_id, sale_id, current_user)
     filename = f"sales_returns_{date.today().isoformat()}.xlsx"
     return Response(
-        content=build_sales_returns_xlsx(rows),
+        content=build_xlsx("Sales Returns", ("Customer Name", "Invoice Number", "Total Amount"), rows),
         media_type=XLSX_MEDIA_TYPE,
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )

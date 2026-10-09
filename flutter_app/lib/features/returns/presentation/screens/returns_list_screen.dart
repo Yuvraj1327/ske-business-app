@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/errors/failure.dart';
+import '../../../../core/utils/file_download/export_result.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/empty_state_view.dart';
@@ -19,13 +20,13 @@ class ReturnsListScreen extends ConsumerWidget {
     final errorColor = Theme.of(context).colorScheme.error;
     final result = await ref.read(returnExportControllerProvider.notifier).exportXlsx();
     switch (result) {
-      case ReturnExportResult.saved:
+      case ExportResult.saved:
         messenger.showSnackBar(const SnackBar(content: Text('Sales returns exported.')));
-      case ReturnExportResult.failed:
+      case ExportResult.failed:
         final error = ref.read(returnExportControllerProvider).error;
         final message = error is Failure ? error.message : 'Could not export sales returns. Please try again.';
         messenger.showSnackBar(SnackBar(content: Text(message), backgroundColor: errorColor));
-      case ReturnExportResult.cancelled:
+      case ExportResult.cancelled:
         break;
     }
   }

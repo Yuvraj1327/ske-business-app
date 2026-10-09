@@ -145,6 +145,29 @@ class SettlementService:
         items = [SettlementItemResponse.from_model(i) for i in sorted(sheet.items, key=lambda i: i.row_no)]
         return SettlementSheetDetailResponse(**base.model_dump(), items=items)
 
+    async def export_collection_rows(
+        self, sheet_id: uuid.UUID, mode: str, current_user: CurrentUser
+    ) -> tuple[SettlementSheet, list[tuple[str, str, Decimal]]]:
+        """(customer name, invoice number, amount) for every invoice on this
+        sheet's Picklist (linked by Pick Sheet No.) saved as Cash / Online.
+        The amount is the row's saved amount payable — exactly what
+        `_sync_settlement_totals` sums into the sheet's Cash / Online total.
+        Same view access as get_sheet; read-only."""
+        sheet = await self.sheets.get_by_id(sheet_id)
+        if sheet is None:
+            raise NotFoundError("Settlement sheet not found")
+        self._check_view_access(sheet, current_user)
+
+        label = mode.capitalize()
+        if not sheet.pick_sheet_no:
+            raise BusinessRuleError("This sheet has no Pick Sheet No., so there is no picklist to export from.")
+        items = await PicklistRepository(self.db).items_by_picklist_no_and_status(sheet.pick_sheet_no, mode)
+        if items is None:
+            raise NotFoundError(f"No picklist found for Pick Sheet No. {sheet.pick_sheet_no}.")
+        if not items:
+            raise BusinessRuleError(f"No {label} payments are recorded on picklist {sheet.pick_sheet_no}.")
+        return sheet, [(i.customer_name, i.invoice_number, i.amount_payable) for i in items]
+
     async def _build_response(
         self, sheet: SettlementSheet, agents_by_id: dict[uuid.UUID, User] | None = None
     ) -> SettlementSheetResponse:

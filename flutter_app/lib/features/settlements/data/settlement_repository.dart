@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../../../core/network/api_client.dart';
 import '../../../shared_models/page.dart';
 import '../domain/settlement_models.dart';
@@ -22,6 +24,13 @@ class SettlementRepository {
   Future<SettlementSheetDetail> getSheet(String id) async {
     final response = await _apiClient.get<Map<String, dynamic>>('/settlements/$id');
     return SettlementSheetDetail.fromJson(response.data!);
+  }
+
+  /// The .xlsx of this sheet's `online` or `cash` collections (customer,
+  /// invoice number, saved amount), built by the backend from the sheet's
+  /// linked Picklist.
+  Future<Uint8List> exportCollectionsXlsx(String sheetId, String mode) {
+    return _apiClient.getBytes('/settlements/$sheetId/export', queryParameters: {'mode': mode});
   }
 
   Future<SettlementSheetDetail> createSheet({

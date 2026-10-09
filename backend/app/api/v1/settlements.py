@@ -1,6 +1,8 @@
 import uuid
+from datetime import date
+from typing import Literal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.permissions import require_permission
@@ -19,6 +21,7 @@ from app.schemas.settlement import (
 )
 from app.services.settlement_service import SettlementService
 from app.utils.pagination import PaginationParams, pagination_params
+from app.utils.xlsx_export import XLSX_MEDIA_TYPE, build_xlsx, safe_filename_part
 
 router = APIRouter(prefix="/settlements", tags=["settlements"])
 
@@ -65,6 +68,26 @@ async def get_settlement_sheet(
 ) -> SettlementSheetDetailResponse:
     service = SettlementService(db)
     return await service.get_sheet(sheet_id, current_user)
+
+
+@router.get("/{sheet_id}/export")
+async def export_settlement_collections(
+    sheet_id: uuid.UUID,
+    mode: Literal["online", "cash"] = Query(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+) -> Response:
+    """One-click .xlsx of this sheet's Online or Cash collections (customer,
+    invoice number, saved amount) from its linked Picklist. Same access rule
+    as viewing the sheet."""
+    sheet, rows = await SettlementService(db).export_collection_rows(sheet_id, mode, current_user)
+    label = mode.capitalize()
+    filename = f"{safe_filename_part(sheet.pick_sheet_no)}_{mode}_{date.today().isoformat()}.xlsx"
+    return Response(
+        content=build_xlsx(f"{label} Collections", ("Customer Name", "Invoice Number", f"{label} Amount"), rows),
+        media_type=XLSX_MEDIA_TYPE,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.patch("/{sheet_id}", response_model=SettlementSheetDetailResponse)

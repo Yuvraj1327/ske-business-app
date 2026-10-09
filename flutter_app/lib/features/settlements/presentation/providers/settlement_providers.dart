@@ -1,7 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../../../core/auth/auth_state.dart';
 import '../../../../core/errors/failure.dart';
+import '../../../../core/utils/file_download/export_result.dart';
+import '../../../../core/utils/file_download/file_download.dart';
 import '../../../../shared_models/page.dart';
 import '../../../customers/domain/customer_models.dart';
 import '../../../customers/presentation/providers/customer_providers.dart';
@@ -255,3 +258,32 @@ class SettlementMutationController extends AsyncNotifier<void> {
 
 final settlementMutationControllerProvider =
     AsyncNotifierProvider<SettlementMutationController, void>(SettlementMutationController.new);
+
+/// Downloads a sheet's Online or Cash collections as
+/// `<PickSheetNo>_<mode>_<YYYY-MM-DD>.xlsx`. A failure is left in the state.
+class SettlementExportController extends AsyncNotifier<void> {
+  @override
+  Future<void> build() async {}
+
+  Future<ExportResult> exportXlsx({required String sheetId, required String? pickSheetNo, required String mode}) async {
+    if (state.isLoading) return ExportResult.cancelled;
+    state = const AsyncLoading();
+    try {
+      final bytes = await ref.read(settlementRepositoryProvider).exportCollectionsXlsx(sheetId, mode);
+      final pickNo = (pickSheetNo ?? '').replaceAll(RegExp(r'[^A-Za-z0-9._-]+'), '_');
+      final fileName = '${pickNo.isEmpty ? 'sheet' : pickNo}_${mode}_${DateFormat('yyyy-MM-dd').format(DateTime.now())}.xlsx';
+      final saved = await saveBytesAsFile(bytes: bytes, fileName: fileName, mimeType: xlsxMimeType);
+      state = const AsyncData(null);
+      return saved ? ExportResult.saved : ExportResult.cancelled;
+    } on Failure catch (f) {
+      state = AsyncError(f, StackTrace.current);
+      return ExportResult.failed;
+    } catch (e) {
+      state = AsyncError(Failure.unknown(e.toString()), StackTrace.current);
+      return ExportResult.failed;
+    }
+  }
+}
+
+final settlementExportControllerProvider =
+    AsyncNotifierProvider<SettlementExportController, void>(SettlementExportController.new);
