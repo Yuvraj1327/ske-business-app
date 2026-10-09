@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/errors/failure.dart';
 import '../../../../core/utils/formatters.dart';
+import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/empty_state_view.dart';
 import '../../../../core/widgets/error_view.dart';
 import '../../../../core/widgets/loading_view.dart';
@@ -12,6 +13,22 @@ import '../providers/return_providers.dart';
 
 class ReturnsListScreen extends ConsumerWidget {
   const ReturnsListScreen({super.key});
+
+  Future<void> _export(BuildContext context, WidgetRef ref) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final errorColor = Theme.of(context).colorScheme.error;
+    final result = await ref.read(returnExportControllerProvider.notifier).exportXlsx();
+    switch (result) {
+      case ReturnExportResult.saved:
+        messenger.showSnackBar(const SnackBar(content: Text('Sales returns exported.')));
+      case ReturnExportResult.failed:
+        final error = ref.read(returnExportControllerProvider).error;
+        final message = error is Failure ? error.message : 'Could not export sales returns. Please try again.';
+        messenger.showSnackBar(SnackBar(content: Text(message), backgroundColor: errorColor));
+      case ReturnExportResult.cancelled:
+        break;
+    }
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -23,7 +40,19 @@ class ReturnsListScreen extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('Sales Returns', style: AppTextStyles.heading1),
+          Row(
+            children: [
+              const Expanded(child: Text('Sales Returns', style: AppTextStyles.heading1)),
+              AppButton(
+                label: 'Export XLSX',
+                icon: Icons.download_outlined,
+                expand: false,
+                isLoading: ref.watch(returnExportControllerProvider).isLoading,
+                // Nothing to export while loading, on error, or when empty.
+                onPressed: (returnsAsync.valueOrNull?.total ?? 0) > 0 ? () => _export(context, ref) : null,
+              ),
+            ],
+          ),
           const SizedBox(height: 16),
           Expanded(
             child: returnsAsync.when(

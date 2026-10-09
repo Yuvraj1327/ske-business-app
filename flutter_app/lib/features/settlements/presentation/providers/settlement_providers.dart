@@ -101,7 +101,7 @@ class SettlementMutationController extends AsyncNotifier<void> {
     required List<String> salesmanIds,
     String? notes,
     String? pickSheetNo,
-    double pickSheetValue = 0,
+    double? pickSheetValue,
     double returnsAmount = 0,
     double damageReturnAmount = 0,
     double discountAmount = 0,

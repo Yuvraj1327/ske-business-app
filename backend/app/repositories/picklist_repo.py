@@ -64,6 +64,16 @@ class PicklistRepository:
             totals[status] = Decimal(cheque if status == "cheque" else payable)
         return totals
 
+    async def total_amount_by_picklist_no(self, picklist_no: str | None) -> Decimal:
+        """The picklist's imported total (sum of its invoice amounts, set at
+        import) — what a Settlement Sheet's Pick Sheet Value starts from. 0
+        if there is no picklist with this number."""
+        if not picklist_no:
+            return Decimal("0")
+        result = await self.db.execute(select(Picklist.total_amount).where(Picklist.picklist_no == picklist_no))
+        total = result.scalar_one_or_none()
+        return Decimal(total) if total is not None else Decimal("0")
+
     async def list_picklists(self, pagination: PaginationParams, delivery_agent_id: uuid.UUID | None):
         stmt = select(Picklist).order_by(Picklist.created_at.desc())
         if delivery_agent_id:

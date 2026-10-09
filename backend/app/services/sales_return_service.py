@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import BusinessRuleError, NotFoundError, PermissionDeniedError, ValidationError
 from app.core.security import CurrentUser
 from app.models.customer import Customer
+from app.models.invoice import Invoice
 from app.models.product import Product
 from app.models.sale import Sale, SaleItem
 from app.models.sales_return import SalesReturn, SalesReturnItem
@@ -181,3 +182,45 @@ class SalesReturnService:
                 sale = sale_result.scalar_one()
             responses.append(await self._build_response(sales_return, sale, customers_by_id.get(sale.customer_id)))
         return responses, total
+
+    async def export_rows(
+        self, customer_id: uuid.UUID | None, sale_id: uuid.UUID | None, current_user: CurrentUser
+    ) -> list[tuple[str, str, Decimal]]:
+        """(customer name, invoice number, total return amount) for EVERY
+        return matching the same filters/visibility as `list_returns`, across
+        all pages, in the same order. Reads persisted rows only — nothing is
+        recalculated."""
+        agent_sale_ids = self.picklists.agent_sale_ids(current_user.id) if current_user.is_picklist_agent else None
+        returns: list[SalesReturn] = []
+        page = 1
+        while True:
+            items, total = await self.returns.list_returns(
+                PaginationParams(page=page, page_size=EXPORT_PAGE_SIZE), customer_id, sale_id, agent_sale_ids
+            )
+            returns.extend(items)
+            if not items or len(returns) >= total:
+                break
+            page += 1
+        if not returns:
+            return []
+
+        sale_ids = {r.sale_id for r in returns}
+        lookup: dict[uuid.UUID, tuple[str, str]] = {}
+        for chunk in _chunks(list(sale_ids), 500):
+            result = await self.db.execute(
+                select(Sale.id, Customer.name, Invoice.invoice_number)
+                .join(Customer, Customer.id == Sale.customer_id)
+                .outerjoin(Invoice, Invoice.sale_id == Sale.id)
+                .where(Sale.id.in_(chunk))
+            )
+            for sid, customer_name, invoice_number in result.all():
+                lookup[sid] = (customer_name, invoice_number or "")
+        return [(*lookup.get(r.sale_id, ("", "")), r.total_return_amount) for r in returns]
+
+
+EXPORT_PAGE_SIZE = 100  # same cap the list endpoint enforces
+
+
+def _chunks(values: list, size: int):
+    for i in range(0, len(values), size):
+        yield values[i : i + size]

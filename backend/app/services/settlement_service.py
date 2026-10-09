@@ -235,7 +235,13 @@ class SettlementService:
         # Cash / Online / Cheque / Credit Bills start from the Picklist's
         # totals unless the caller supplied a value; they stay editable
         # afterwards via update_sheet and never write back to the picklist.
-        picklist_totals = await PicklistRepository(self.db).collection_totals_by_picklist_no(payload.pick_sheet_no)
+        picklists = PicklistRepository(self.db)
+        picklist_totals = await picklists.collection_totals_by_picklist_no(payload.pick_sheet_no)
+        pick_sheet_value = (
+            payload.pick_sheet_value
+            if payload.pick_sheet_value is not None
+            else await picklists.total_amount_by_picklist_no(payload.pick_sheet_no)
+        )
         collected = {
             field: (getattr(payload, field) if getattr(payload, field) is not None else picklist_totals[mode])
             for mode, field in SETTLEMENT_FIELD_BY_MODE.items()
@@ -250,7 +256,7 @@ class SettlementService:
             status="draft",
             notes=payload.notes,
             pick_sheet_no=payload.pick_sheet_no,
-            pick_sheet_value=payload.pick_sheet_value,
+            pick_sheet_value=pick_sheet_value,
             returns_amount=payload.returns_amount,
             damage_return_amount=payload.damage_return_amount,
             discount_amount=payload.discount_amount,
@@ -313,7 +319,7 @@ class SettlementService:
         updates = payload.model_dump(exclude={"delivery_agent_id", "salesman_ids"}, exclude_unset=True)
 
         # Re-pointing the sheet at a different Picklist carries that
-        # picklist's totals across for every field not sent in this request —
+        # picklist's totals (and Pick Sheet Value) across for every field not sent in this request —
         # but only for fields still holding the old picklist's value (i.e.
         # Admin hasn't overridden them).
         new_pick_no = updates.get("pick_sheet_no")
@@ -324,6 +330,9 @@ class SettlementService:
             for mode, field in SETTLEMENT_FIELD_BY_MODE.items():
                 if field not in updates and getattr(sheet, field) == old_totals[mode]:
                     updates[field] = new_totals[mode]
+            old_value = await picklists.total_amount_by_picklist_no(sheet.pick_sheet_no)
+            if "pick_sheet_value" not in updates and sheet.pick_sheet_value == old_value:
+                updates["pick_sheet_value"] = await picklists.total_amount_by_picklist_no(new_pick_no)
 
         for field, value in updates.items():
             setattr(sheet, field, value)

@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../../../core/network/api_client.dart';
 import '../../../shared_models/page.dart';
 import '../domain/return_models.dart';
@@ -34,5 +36,17 @@ class ReturnRepository {
       },
     );
     return Page.fromJson(response.data!, SalesReturn.fromJson);
+  }
+
+  /// The .xlsx for every return matching the (unpaginated) filters, built by
+  /// the backend from persisted data.
+  Future<Uint8List> exportReturnsXlsx({String? customerId, String? saleId}) {
+    return _apiClient.getBytes(
+      '/returns/export',
+      queryParameters: {
+        if (customerId != null) 'customer_id': customerId,
+        if (saleId != null) 'sale_id': saleId,
+      },
+    );
   }
 }

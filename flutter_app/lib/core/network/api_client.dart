@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -45,6 +48,30 @@ class ApiClient {
     try {
       return await dio.get<T>(path, queryParameters: queryParameters);
     } on DioException catch (e) {
+      throw mapDioErrorToFailure(e);
+    }
+  }
+
+  /// GET a binary body (e.g. a generated .xlsx). Error bodies also arrive as
+  /// bytes, so they're decoded back to the backend's JSON error envelope
+  /// before mapping to a [Failure].
+  Future<Uint8List> getBytes(String path, {Map<String, dynamic>? queryParameters}) async {
+    try {
+      final response = await dio.get<List<int>>(
+        path,
+        queryParameters: queryParameters,
+        options: Options(responseType: ResponseType.bytes, receiveTimeout: const Duration(seconds: 120)),
+      );
+      return Uint8List.fromList(response.data ?? const []);
+    } on DioException catch (e) {
+      final body = e.response?.data;
+      if (body is List<int>) {
+        try {
+          e.response!.data = jsonDecode(utf8.decode(body));
+        } catch (_) {
+          // Not JSON — fall through with the raw error.
+        }
+      }
       throw mapDioErrorToFailure(e);
     }
   }

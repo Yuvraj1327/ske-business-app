@@ -33,7 +33,9 @@ class SettlementSheetCreateRequest(BaseModel):
     notes: str | None = None
     # General / reconciliation fields — manually entered by Admin.
     pick_sheet_no: str | None = None
-    pick_sheet_value: Decimal = Field(default=Decimal("0"), ge=0)
+    # Omitted -> the matching Picklist's imported total (like the four
+    # collection amounts below); an explicit value (including 0) is kept.
+    pick_sheet_value: Decimal | None = Field(default=None, ge=0)
     returns_amount: Decimal = Field(default=Decimal("0"), ge=0)
     damage_return_amount: Decimal = Field(default=Decimal("0"), ge=0)
     discount_amount: Decimal = Field(default=Decimal("0"), ge=0)

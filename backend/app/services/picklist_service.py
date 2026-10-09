@@ -308,9 +308,15 @@ class PicklistService:
         # Serialise per picklist: see PicklistRepository.lock_by_picklist_no.
         await self.picklists.lock_by_picklist_no(picklist_no)
         totals = await self.picklists.collection_totals_by_picklist_no(picklist_no)
+        pick_sheet_value = await self.picklists.total_amount_by_picklist_no(picklist_no)
         for sheet in await SettlementRepository(self.db).list_open_by_pick_sheet_no(picklist_no):
             for mode, field in SETTLEMENT_FIELD_BY_MODE.items():
                 setattr(sheet, field, totals[mode])
+            # Pick Sheet Value is the imported total — it doesn't move when a
+            # payment is saved, so it is only filled in when still 0 (sheets
+            # made before it was synced); a value Admin typed is kept.
+            if not sheet.pick_sheet_value:
+                sheet.pick_sheet_value = pick_sheet_value
         await self.db.flush()
 
     async def _assign_credit_salesman(self, item, salesman: User) -> None:

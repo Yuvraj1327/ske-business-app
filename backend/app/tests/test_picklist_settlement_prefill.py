@@ -21,8 +21,9 @@ def _totals(cash="0", online="0", credit="0", cheque="0"):
     return {"cash": D(cash), "online": D(online), "credit": D(credit), "cheque": D(cheque)}
 
 
-def _sheet(cash="0", online="0", credit_bills="0", cheque="0", **extra):
+def _sheet(cash="0", online="0", credit_bills="0", cheque="0", pick_sheet_value="0", **extra):
     return SimpleNamespace(
+        pick_sheet_value=D(pick_sheet_value),
         cash_amount=D(cash),
         online_amount=D(online),
         credit_bills_amount=D(credit_bills),
@@ -43,7 +44,7 @@ def test_mode_to_settlement_field_mapping():
 def test_create_request_omitted_amounts_are_unset_but_explicit_zero_is_kept():
     base = dict(sheet_date="2026-10-07", delivery_agent_id=uuid.uuid4(), salesman_ids=[uuid.uuid4()])
     omitted = SettlementSheetCreateRequest(**base)
-    for field in SETTLEMENT_FIELD_BY_MODE.values():
+    for field in (*SETTLEMENT_FIELD_BY_MODE.values(), "pick_sheet_value"):
         assert getattr(omitted, field) is None
     explicit = SettlementSheetCreateRequest(**base, cash_amount="0", online_amount="5")
     assert explicit.cash_amount == D("0")
@@ -52,11 +53,14 @@ def test_create_request_omitted_amounts_are_unset_but_explicit_zero_is_kept():
         SettlementSheetCreateRequest(**base, credit_bills_amount="-1")
 
 
-def _service_with_repos(monkeypatch, new, sheets, locked=None):
+def _service_with_repos(monkeypatch, new, sheets, locked=None, total_amount="0"):
     """PicklistService whose repos return fixed totals/sheets."""
 
     async def fake_totals(no):
         return new
+
+    async def fake_total_amount(no):
+        return D(total_amount)
 
     async def fake_lock(no):
         if locked is not None:
@@ -72,7 +76,11 @@ def _service_with_repos(monkeypatch, new, sheets, locked=None):
     monkeypatch.setattr("app.services.picklist_service.SettlementRepository.list_open_by_pick_sheet_no", fake_open)
     service = PicklistService.__new__(PicklistService)
     service.db = _Db()
-    service.picklists = SimpleNamespace(collection_totals_by_picklist_no=fake_totals, lock_by_picklist_no=fake_lock)
+    service.picklists = SimpleNamespace(
+        collection_totals_by_picklist_no=fake_totals,
+        lock_by_picklist_no=fake_lock,
+        total_amount_by_picklist_no=fake_total_amount,
+    )
     return service
 
 
@@ -115,6 +123,15 @@ async def test_sync_does_not_touch_other_sheet_fields(monkeypatch):
     assert (sheet.returns_amount, sheet.damage_return_amount, sheet.discount_amount, sheet.old_short_amount) == (
         D("10"), D("20"), D("30"), D("40"),
     )
+
+
+@pytest.mark.asyncio
+async def test_sync_fills_pick_sheet_value_only_when_zero(monkeypatch):
+    empty, typed = _sheet(), _sheet(pick_sheet_value="123")
+    service = _service_with_repos(monkeypatch, _totals(cash="5"), [empty, typed], total_amount="9000")
+    await service._sync_settlement_totals("PL-1")
+    assert empty.pick_sheet_value == D("9000")  # never synced before -> filled from the imported total
+    assert typed.pick_sheet_value == D("123")  # Admin-entered -> kept
 
 
 @pytest.mark.asyncio
@@ -170,7 +187,7 @@ async def test_update_sheet_edit_does_not_resync_or_write_picklist(monkeypatch):
 async def test_update_sheet_repointing_picklist_carries_untouched_fields(monkeypatch):
     sheet = SimpleNamespace(
         id=uuid.uuid4(), status="draft", pick_sheet_no="PL-1", cash_amount=D("100"), online_amount=D("77"),
-        credit_bills_amount=D("0"), cheque_amount=D("0"), salesmen=[],
+        credit_bills_amount=D("0"), cheque_amount=D("0"), pick_sheet_value=D("1000"), salesmen=[],
     )
     totals = {"PL-1": _totals(cash="100"), "PL-2": _totals(cash="300", online="40", credit="9", cheque="8")}
 
@@ -188,7 +205,11 @@ async def test_update_sheet_repointing_picklist_carries_untouched_fields(monkeyp
     async def fake_totals(self, picklist_no):
         return totals[picklist_no]
 
+    async def fake_total_amount(self, picklist_no):
+        return {"PL-1": D("1000"), "PL-2": D("2500")}[picklist_no]
+
     monkeypatch.setattr("app.services.settlement_service.PicklistRepository.collection_totals_by_picklist_no", fake_totals)
+    monkeypatch.setattr("app.services.settlement_service.PicklistRepository.total_amount_by_picklist_no", fake_total_amount)
     service = SettlementService.__new__(SettlementService)
     service.db = _Db()
     service.sheets = _Sheets()
@@ -206,3 +227,4 @@ async def test_update_sheet_repointing_picklist_carries_untouched_fields(monkeyp
     assert sheet.online_amount == D("77")  # Admin-edited -> kept
     assert sheet.credit_bills_amount == D("9")  # was 0 == PL-1's credit total -> carried across
     assert sheet.cheque_amount == D("1")  # explicitly sent -> kept
+    assert sheet.pick_sheet_value == D("2500")  # was PL-1's imported total -> carried across

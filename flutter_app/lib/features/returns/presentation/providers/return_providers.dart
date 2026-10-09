@@ -1,8 +1,10 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../../../core/auth/auth_state.dart';
 import '../../../../core/errors/failure.dart';
+import '../../../../core/utils/file_download/file_download.dart';
 import '../../../../shared_models/page.dart';
 import '../../data/return_repository.dart';
 import '../../domain/return_models.dart';
@@ -75,4 +77,37 @@ class ReturnMutationController extends AsyncNotifier<void> {
 
 final returnMutationControllerProvider = AsyncNotifierProvider<ReturnMutationController, void>(
   ReturnMutationController.new,
+);
+
+enum ReturnExportResult { saved, cancelled, failed }
+
+const _xlsxMimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+/// Downloads every sales return (all pages) as sales_returns_YYYY-MM-DD.xlsx.
+/// `isLoading` drives the button spinner; a failure is left in the state.
+class ReturnExportController extends AsyncNotifier<void> {
+  @override
+  Future<void> build() async {}
+
+  Future<ReturnExportResult> exportXlsx() async {
+    if (state.isLoading) return ReturnExportResult.cancelled;
+    state = const AsyncLoading();
+    try {
+      final bytes = await ref.read(returnRepositoryProvider).exportReturnsXlsx();
+      final fileName = 'sales_returns_${DateFormat('yyyy-MM-dd').format(DateTime.now())}.xlsx';
+      final saved = await saveBytesAsFile(bytes: bytes, fileName: fileName, mimeType: _xlsxMimeType);
+      state = const AsyncData(null);
+      return saved ? ReturnExportResult.saved : ReturnExportResult.cancelled;
+    } on Failure catch (f) {
+      state = AsyncError(f, StackTrace.current);
+      return ReturnExportResult.failed;
+    } catch (e) {
+      state = AsyncError(Failure.unknown(e.toString()), StackTrace.current);
+      return ReturnExportResult.failed;
+    }
+  }
+}
+
+final returnExportControllerProvider = AsyncNotifierProvider<ReturnExportController, void>(
+  ReturnExportController.new,
 );

@@ -30,7 +30,7 @@ class SettlementRepository {
     required List<String> salesmanIds,
     String? notes,
     String? pickSheetNo,
-    double pickSheetValue = 0,
+    double? pickSheetValue,
     double returnsAmount = 0,
     double damageReturnAmount = 0,
     double discountAmount = 0,
@@ -49,7 +49,8 @@ class SettlementRepository {
         'salesman_ids': salesmanIds,
         if (notes != null && notes.isNotEmpty) 'notes': notes,
         if (pickSheetNo != null && pickSheetNo.isNotEmpty) 'pick_sheet_no': pickSheetNo,
-        'pick_sheet_value': pickSheetValue.toStringAsFixed(2),
+        // Omitted -> the backend starts from the Picklist's imported total.
+        if (pickSheetValue != null) 'pick_sheet_value': pickSheetValue.toStringAsFixed(2),
         'returns_amount': returnsAmount.toStringAsFixed(2),
         'damage_return_amount': damageReturnAmount.toStringAsFixed(2),
         'discount_amount': discountAmount.toStringAsFixed(2),

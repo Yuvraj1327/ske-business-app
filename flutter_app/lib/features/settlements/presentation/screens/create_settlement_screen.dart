@@ -42,7 +42,7 @@ class _CreateSettlementScreenState extends ConsumerState<CreateSettlementScreen>
   final _oldShortAmountController = TextEditingController(text: '0');
   final List<DraftSettlementRow> _rows = [];
 
-  // Cash / Online / Credit Bills / Cheque start from the chosen Picklist's
+  // Pick Sheet Value / Cash / Online / Credit Bills / Cheque start from the chosen Picklist's
   // saved totals, each until Admin types their own value — after that that
   // field is never overwritten.
   final Set<TextEditingController> _editedAmounts = {};
@@ -59,6 +59,7 @@ class _CreateSettlementScreenState extends ConsumerState<CreateSettlementScreen>
     final match = picklists.where((p) => p.picklistNo == pickNo);
     final picked = match.isEmpty ? null : match.first;
     final prefill = {
+      _pickSheetValueController: picked?.totalAmount ?? 0.0,
       _cashController: picked?.cashTotal ?? 0.0,
       _onlineController: picked?.onlineTotal ?? 0.0,
       _creditBillsAmountController: picked?.creditTotal ?? 0.0,
@@ -125,7 +126,7 @@ class _CreateSettlementScreenState extends ConsumerState<CreateSettlementScreen>
           salesmanIds: _selectedSalesmanIds.toList(),
           notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
           pickSheetNo: _pickSheetNoController.text.trim().isEmpty ? null : _pickSheetNoController.text.trim(),
-          pickSheetValue: _num(_pickSheetValueController),
+          pickSheetValue: _editedAmounts.contains(_pickSheetValueController) ? _num(_pickSheetValueController) : null,
           returnsAmount: _num(_returnsAmountController),
           damageReturnAmount: _num(_damageReturnAmountController),
           discountAmount: _num(_discountAmountController),
@@ -247,6 +248,7 @@ class _CreateSettlementScreenState extends ConsumerState<CreateSettlementScreen>
                         label: 'Pick Sheet Value',
                         controller: _pickSheetValueController,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        onChanged: (_) => _editedAmounts.add(_pickSheetValueController),
                       ),
                     ],
                   ),
