@@ -6,7 +6,8 @@ import '../../../../core/errors/failure.dart';
 import '../../../../shared_models/page.dart';
 import '../../../roles/domain/role_models.dart';
 import '../../../roles/presentation/providers/role_providers.dart';
-import '../../../settlements/presentation/providers/settlement_providers.dart' show settlementsListProvider;
+import '../../../settlements/presentation/providers/settlement_providers.dart'
+    show settlementDetailProvider, settlementsListProvider;
 import '../../../users/domain/managed_user.dart';
 import '../../../users/presentation/providers/user_providers.dart';
 import '../../data/picklist_repository.dart';
@@ -84,10 +85,11 @@ class PicklistMutationController extends AsyncNotifier<void> {
           .confirmItem(itemId, status, chequeAmount: chequeAmount, salesmanId: salesmanId);
       ref.invalidate(picklistDetailProvider(picklistId));
       ref.invalidate(picklistsListProvider);
-      // Every confirm feeds the Settlement Sheet's Cash / Online / Credit
-      // Bills / Cheque pre-fill, and a credit adds its salesman to the sheet
+      // Every confirm re-syncs the Settlement Sheet's Cash / Online / Credit
+      // Bills / Cheque, and a credit adds its salesman to the sheet
       // (see PicklistService._sync_settlement_*), so refresh sheets too.
       ref.invalidate(settlementsListProvider);
+      ref.invalidate(settlementDetailProvider);
       state = const AsyncData(null);
       return true;
     } on Failure catch (f) {

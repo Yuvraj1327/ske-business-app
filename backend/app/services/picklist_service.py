@@ -20,8 +20,9 @@ orchestration):
      entered amount on the row (no Payment — a cheque only counts as paid once
      cleared, via the existing Payments screen). Every confirm feeds the
      picklist's Cash / Online / Credit / Cheque totals into the matching
-     fields of any open Settlement Sheet with the same Pick Sheet No. (as
-     editable starting values — see _sync_settlement_totals).
+     fields of any open Settlement Sheet with the same Pick Sheet No. (the
+     sheet fields stay editable until the next confirm re-syncs them — see
+     _sync_settlement_totals).
      Credit records the Salesman the Delivery Agent picked to handle that
      Credit/Udhaar customer, and makes it the customer's (and sale's) assigned
      salesman — the field the existing Settlement / Salesman credit views and
@@ -248,10 +249,6 @@ class PicklistService:
                 raise ValidationError("Selected salesman was not found or is inactive.", field="salesman_id")
 
         try:
-            # Picklist totals before this confirm, so the settlement sync can
-            # tell which sheet values are still the untouched pre-fill.
-            previous_totals = await self.picklists.collection_totals_by_picklist_no(item.picklist.picklist_no)
-
             if status in _STATUS_TO_PAYMENT_METHOD:
                 payment = Payment(
                     customer_id=item.customer_id,
@@ -287,7 +284,7 @@ class PicklistService:
             item.collected_at = datetime.utcnow()
             await self.picklists.save_item(item)
 
-            await self._sync_settlement_totals(item.picklist.picklist_no, previous_totals)
+            await self._sync_settlement_totals(item.picklist.picklist_no)
             if salesman is not None:
                 await self._sync_settlement_salesman(item.picklist.picklist_no, salesman)
             await self.db.commit()
@@ -298,19 +295,22 @@ class PicklistService:
         await self.db.refresh(item)
         return PicklistItemResponse.from_model(item)
 
-    async def _sync_settlement_totals(self, picklist_no: str, previous_totals: dict[str, Decimal]) -> None:
-        """Keeps each open Settlement Sheet's Cash / Online / Credit Bills /
-        Cheque equal to the picklist's totals — per field, and only while that
-        field still holds the value the picklist had before this change. A
-        value Admin has edited to something else is left alone, completed
-        sheets are never touched, and the picklist rows are never written to
-        from the settlement side (the fields stay freely editable via the
-        existing sheet update)."""
-        new_totals = await self.picklists.collection_totals_by_picklist_no(picklist_no)
+    async def _sync_settlement_totals(self, picklist_no: str) -> None:
+        """Sets each open Settlement Sheet's Cash / Online / Credit Bills /
+        Cheque to the picklist's current totals. The totals are recomputed
+        from the picklist rows on every call and assigned (never added), so
+        repeated syncs are idempotent and can't double count. Only those four
+        fields are written: returns, damage return, discount and old short are
+        untouched, completed sheets are never modified, and nothing is written
+        to the picklist from the settlement side. The fields stay editable via
+        the existing sheet update until the next picklist change re-syncs
+        them."""
+        # Serialise per picklist: see PicklistRepository.lock_by_picklist_no.
+        await self.picklists.lock_by_picklist_no(picklist_no)
+        totals = await self.picklists.collection_totals_by_picklist_no(picklist_no)
         for sheet in await SettlementRepository(self.db).list_open_by_pick_sheet_no(picklist_no):
             for mode, field in SETTLEMENT_FIELD_BY_MODE.items():
-                if getattr(sheet, field) == previous_totals[mode]:
-                    setattr(sheet, field, new_totals[mode])
+                setattr(sheet, field, totals[mode])
         await self.db.flush()
 
     async def _assign_credit_salesman(self, item, salesman: User) -> None:

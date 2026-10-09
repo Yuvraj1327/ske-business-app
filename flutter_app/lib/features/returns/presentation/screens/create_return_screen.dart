@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_text_styles.dart';
 import '../../../../core/errors/failure.dart';
 import '../../../../core/widgets/app_button.dart';
@@ -97,14 +98,15 @@ class _CreateReturnScreenState extends ConsumerState<CreateReturnScreen> {
         loading: () => const LoadingView(),
         error: (e, _) => ErrorView(failure: e is Failure ? e : Failure.unknown(e.toString())),
         data: (sale) {
-          final alreadyReturnedByItem = <String, double>{};
-          priorReturnsAsync.whenData((page) {
-            for (final ret in page.items) {
-              for (final item in ret.items) {
-                alreadyReturnedByItem[item.saleItemId] = (alreadyReturnedByItem[item.saleItemId] ?? 0) + item.quantity;
-              }
-            }
-          });
+          final alreadyReturnedByItem = priorReturnsAsync.maybeWhen(
+            data: (page) => alreadyReturnedBySaleItem(page.items),
+            orElse: () => <String, double>{},
+          );
+          // Only once prior returns have loaded, so a slow load never
+          // wrongly shows the sale as fully returned.
+          final allFullyReturned = priorReturnsAsync.hasValue &&
+              sale.items.isNotEmpty &&
+              sale.items.every((i) => i.quantity - (alreadyReturnedByItem[i.id] ?? 0) <= 0);
 
           if (widget.fullReturn && !_fullReturnApplied && priorReturnsAsync.hasValue) {
             _fullReturnApplied = true;
@@ -129,6 +131,25 @@ class _CreateReturnScreenState extends ConsumerState<CreateReturnScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      if (allFullyReturned)
+                        Card(
+                          color: AppColors.warning.withValues(alpha: 0.12),
+                          child: const Padding(
+                            padding: EdgeInsets.all(12),
+                            child: Row(
+                              children: [
+                                Icon(Icons.info_outline, color: AppColors.warning),
+                                SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'All items on this sale have already been fully returned. No more quantity can be returned.',
+                                    style: AppTextStyles.body,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                       ...sale.items.map((item) {
                         final alreadyReturned = alreadyReturnedByItem[item.id] ?? 0;
                         final returnable = item.quantity - alreadyReturned;
@@ -144,10 +165,17 @@ class _CreateReturnScreenState extends ConsumerState<CreateReturnScreen> {
                                     children: [
                                       Text(item.productName, style: AppTextStyles.body, overflow: TextOverflow.ellipsis),
                                       Text(
-                                        'Sold: ${item.quantity} · Returnable: $returnable',
+                                        returnable > 0
+                                            ? 'Sold: ${item.quantity} · Returnable: $returnable'
+                                            : 'Sold: ${item.quantity} · Fully Returned',
                                         style: AppTextStyles.caption,
                                         overflow: TextOverflow.ellipsis,
                                       ),
+                                      if (returnable <= 0)
+                                        const Text(
+                                          'No more quantity can be returned for this item.',
+                                          style: AppTextStyles.caption,
+                                        ),
                                     ],
                                   ),
                                 ),
@@ -173,7 +201,11 @@ class _CreateReturnScreenState extends ConsumerState<CreateReturnScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              AppButton(label: 'Submit Return', isLoading: mutationState.isLoading, onPressed: _submit),
+              AppButton(
+                label: 'Submit Return',
+                isLoading: mutationState.isLoading,
+                onPressed: allFullyReturned ? null : _submit,
+              ),
             ],
           );
         },

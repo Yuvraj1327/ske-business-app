@@ -1,6 +1,7 @@
-"""Picklist -> Settlement pre-fill of Cash / Online / Credit Bills / Cheque.
-The sheet values are editable starting points: synced only while untouched,
-and never written back to the picklist. In-memory only (no DB)."""
+"""Picklist -> Settlement sync of Cash / Online / Credit Bills / Cheque.
+Every picklist save sets the open sheets' four fields to the picklist's current
+totals (idempotent), and nothing is written back to the picklist. In-memory
+only (no DB)."""
 import uuid
 from decimal import Decimal
 from types import SimpleNamespace
@@ -51,12 +52,15 @@ def test_create_request_omitted_amounts_are_unset_but_explicit_zero_is_kept():
         SettlementSheetCreateRequest(**base, credit_bills_amount="-1")
 
 
-def _service_with_repos(monkeypatch, current, new, sheets):
-    """PicklistService whose repos return fixed totals/sheets; `current` is
-    consumed by the sync as the 'after' totals."""
+def _service_with_repos(monkeypatch, new, sheets, locked=None):
+    """PicklistService whose repos return fixed totals/sheets."""
 
-    async def fake_totals(self, picklist_no):
+    async def fake_totals(no):
         return new
+
+    async def fake_lock(no):
+        if locked is not None:
+            locked.append(no)
 
     async def fake_open(self, picklist_no):
         return sheets
@@ -68,38 +72,55 @@ def _service_with_repos(monkeypatch, current, new, sheets):
     monkeypatch.setattr("app.services.picklist_service.SettlementRepository.list_open_by_pick_sheet_no", fake_open)
     service = PicklistService.__new__(PicklistService)
     service.db = _Db()
-    service.picklists = SimpleNamespace(collection_totals_by_picklist_no=lambda no: fake_totals(None, no))
+    service.picklists = SimpleNamespace(collection_totals_by_picklist_no=fake_totals, lock_by_picklist_no=fake_lock)
     return service
 
 
 @pytest.mark.asyncio
-async def test_sync_prefills_untouched_fields_only(monkeypatch):
-    # Picklist went from {cash 100} to {cash 100, online 250, credit 50, cheque 400}.
-    previous = _totals(cash="100")
-    new = _totals(cash="100", online="250", credit="50", cheque="400")
-    untouched = _sheet(cash="100")  # still the old pre-fill
-    admin_edited = _sheet(cash="999", online="7", credit_bills="1", cheque="2")
-    service = _service_with_repos(monkeypatch, None, new, [untouched, admin_edited])
+async def test_sync_sets_all_four_fields_to_current_picklist_totals(monkeypatch):
+    new = _totals(cash="2000", online="1000", credit="500", cheque="3000")
+    in_step = _sheet(cash="2000")
+    drifted = _sheet(cash="999", online="7", credit_bills="1", cheque="2")  # edited / out of step
+    locked = []
+    service = _service_with_repos(monkeypatch, new, [in_step, drifted], locked)
 
-    await service._sync_settlement_totals("PL-1", previous)
+    await service._sync_settlement_totals("PL-1")
 
-    assert (untouched.cash_amount, untouched.online_amount, untouched.credit_bills_amount, untouched.cheque_amount) == (
-        D("100"), D("250"), D("50"), D("400"),
-    )
-    # Admin-edited values are never overwritten.
-    assert (admin_edited.cash_amount, admin_edited.online_amount) == (D("999"), D("7"))
-    assert (admin_edited.credit_bills_amount, admin_edited.cheque_amount) == (D("1"), D("2"))
+    for sheet in (in_step, drifted):
+        assert (sheet.cash_amount, sheet.online_amount, sheet.credit_bills_amount, sheet.cheque_amount) == (
+            D("2000"), D("1000"), D("500"), D("3000"),
+        )
+    assert locked == ["PL-1"]  # picklist locked before totals are computed
 
 
 @pytest.mark.asyncio
-async def test_sync_does_not_touch_other_sheet_fields_or_picklist(monkeypatch):
+async def test_sync_is_idempotent_and_follows_changes(monkeypatch):
+    sheet = _sheet()
+    service = _service_with_repos(monkeypatch, _totals(cash="100", online="50"), [sheet])
+    await service._sync_settlement_totals("PL-1")
+    await service._sync_settlement_totals("PL-1")  # repeated sync must not double count
+    assert (sheet.cash_amount, sheet.online_amount) == (D("100"), D("50"))
+
+    service = _service_with_repos(monkeypatch, _totals(cash="100", online="50", credit="30"), [sheet])
+    await service._sync_settlement_totals("PL-1")
+    assert (sheet.cash_amount, sheet.online_amount, sheet.credit_bills_amount) == (D("100"), D("50"), D("30"))
+
+
+@pytest.mark.asyncio
+async def test_sync_does_not_touch_other_sheet_fields(monkeypatch):
     sheet = _sheet(returns_amount=D("10"), damage_return_amount=D("20"), discount_amount=D("30"), old_short_amount=D("40"))
-    service = _service_with_repos(monkeypatch, None, _totals(cash="5"), [sheet])
-    await service._sync_settlement_totals("PL-1", _totals())
+    service = _service_with_repos(monkeypatch, _totals(cash="5"), [sheet])
+    await service._sync_settlement_totals("PL-1")
     assert sheet.cash_amount == D("5")
     assert (sheet.returns_amount, sheet.damage_return_amount, sheet.discount_amount, sheet.old_short_amount) == (
         D("10"), D("20"), D("30"), D("40"),
     )
+
+
+@pytest.mark.asyncio
+async def test_sync_with_no_open_sheets_is_a_noop(monkeypatch):
+    service = _service_with_repos(monkeypatch, _totals(cash="5"), [])
+    await service._sync_settlement_totals("PL-1")  # e.g. only completed / no sheets: nothing to write
 
 
 @pytest.mark.asyncio

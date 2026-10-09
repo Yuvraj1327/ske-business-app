@@ -9,9 +9,9 @@ from app.models.picklist import Picklist, PicklistItem
 from app.utils.pagination import PaginationParams, paginate
 
 
-# Picklist collection mode -> the Settlement Sheet header field it pre-fills.
-# The sheet values are only starting points: they stay editable and editing
-# them never touches the picklist rows.
+# Picklist collection mode -> the Settlement Sheet header field it syncs to.
+# The sheet fields stay editable (until the next picklist change re-syncs
+# them) and editing them never touches the picklist rows.
 SETTLEMENT_FIELD_BY_MODE = {
     "cash": "cash_amount",
     "online": "online_amount",
@@ -33,6 +33,13 @@ class PicklistRepository:
     async def get_by_picklist_no(self, picklist_no: str) -> Picklist | None:
         result = await self.db.execute(select(Picklist).where(Picklist.picklist_no == picklist_no))
         return result.scalar_one_or_none()
+
+    async def lock_by_picklist_no(self, picklist_no: str) -> None:
+        """Row-locks the picklist (held until the transaction ends) so two
+        concurrent confirms on the same picklist recompute and write their
+        settlement totals one after the other instead of the later commit
+        carrying totals that miss the earlier one."""
+        await self.db.execute(select(Picklist.id).where(Picklist.picklist_no == picklist_no).with_for_update())
 
     async def collection_totals_by_picklist_no(self, picklist_no: str | None) -> dict[str, Decimal]:
         """Totals saved on the picklist with this number, per collection mode

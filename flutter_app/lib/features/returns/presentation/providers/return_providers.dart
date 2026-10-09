@@ -35,6 +35,18 @@ final saleReturnsProvider = FutureProvider.autoDispose.family<Page<SalesReturn>,
   return ref.watch(returnRepositoryProvider).listReturns(saleId: saleId, pageSize: 50);
 });
 
+/// Total quantity already returned per sale line (keyed by sale item id), for
+/// display only — the backend stays the source of truth for the real limit.
+Map<String, double> alreadyReturnedBySaleItem(Iterable<SalesReturn> returns) {
+  final result = <String, double>{};
+  for (final ret in returns) {
+    for (final item in ret.items) {
+      result[item.saleItemId] = (result[item.saleItemId] ?? 0) + item.quantity;
+    }
+  }
+  return result;
+}
+
 class ReturnMutationController extends AsyncNotifier<void> {
   @override
   Future<void> build() async {}

@@ -11,6 +11,8 @@ import '../../../../core/widgets/error_view.dart';
 import '../../../../core/widgets/loading_view.dart';
 import '../../../../core/widgets/status_badge.dart';
 import '../../../salesmen/presentation/providers/salesman_providers.dart' show salesmenListProvider;
+import '../../../returns/presentation/providers/return_providers.dart' show alreadyReturnedBySaleItem, saleReturnsProvider;
+import '../../../sales/presentation/providers/sale_providers.dart' show saleDetailProvider;
 import '../../domain/picklist_models.dart';
 import '../providers/picklist_providers.dart';
 
@@ -156,11 +158,37 @@ class _PicklistItemCardState extends ConsumerState<_PicklistItemCard> {
   /// sale; only the pre-filled reason / quantities differ.
   Widget _returnOption(String label, {required String reason, bool full = false}) {
     return OutlinedButton(
-      onPressed: () => context.push(
-        Uri(path: '/sales/${widget.item.saleId}/return', queryParameters: {'reason': reason, if (full) 'full': '1'})
-            .toString(),
-      ),
+      onPressed: () => _openReturn(reason: reason, full: full),
       child: Text(label),
+    );
+  }
+
+  /// Warns instead of opening the return screen when every line of the sale
+  /// has already been fully returned. If that can't be determined (e.g. a
+  /// failed request) the screen opens as before — the backend still enforces
+  /// the real limit.
+  Future<void> _openReturn({required String reason, required bool full}) async {
+    final saleId = widget.item.saleId!;
+    final messenger = ScaffoldMessenger.of(context);
+    var fullyReturned = false;
+    try {
+      final sale = await ref.read(saleDetailProvider(saleId).future);
+      final returns = await ref.read(saleReturnsProvider(saleId).future);
+      final returned = alreadyReturnedBySaleItem(returns.items);
+      fullyReturned =
+          sale.items.isNotEmpty && sale.items.every((i) => i.quantity - (returned[i.id] ?? 0) <= 0);
+    } catch (_) {
+      // Fall through and open the return screen.
+    }
+    if (!mounted) return;
+    if (fullyReturned) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('This invoice has already been fully returned. No more quantity can be returned.')),
+      );
+      return;
+    }
+    context.push(
+      Uri(path: '/sales/$saleId/return', queryParameters: {'reason': reason, if (full) 'full': '1'}).toString(),
     );
   }
 
