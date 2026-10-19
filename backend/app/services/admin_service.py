@@ -2,10 +2,11 @@
 Admin-only data-reset utility (Settings → Reset Data).
 
 Deletion order below was derived by tracing every foreign key across all
-three migrations (001/002/003) — not guessed. The rule: a table with a
+three migrations (001-011) — not guessed. The rule: a table with a
 non-cascading FK to another table-being-deleted must be cleared BEFORE that
 other table. Tables with `ON DELETE CASCADE` already declared (sale_items,
-cheque_details, sales_return_items, import_job_rows, picklist_items) don't
+cheque_details, sales_return_items, import_job_rows, picklist_items,
+settlement_sheet_items, settlement_sheet_salesmen) don't
 need an explicit statement — deleting their parent removes them
 automatically at the database level.
 
@@ -24,6 +25,7 @@ from app.schemas.admin import ResetDataResponse
 # Order matters — see module docstring. Each DELETE also implicitly cascades
 # to any table with an ON DELETE CASCADE foreign key to it.
 _RESET_TABLES_IN_ORDER = [
+    "settlement_sheets",  # cascades -> settlement_sheet_items (FK to customers), settlement_sheet_salesmen
     "picklists",  # cascades -> picklist_items
     "sales_returns",  # cascades -> sales_return_items
     "transactions",
