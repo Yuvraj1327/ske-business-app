@@ -8,6 +8,7 @@ is the ONLY place that should call os.environ / read a .env file.
 from functools import lru_cache
 from typing import List
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -29,6 +30,16 @@ class Settings(BaseSettings):
 
     # --- Database ---
     DATABASE_URL: str
+
+    @field_validator("DATABASE_URL")
+    @classmethod
+    def _use_asyncpg_driver(cls, v: str) -> str:
+        """Supabase/Railway hand out plain postgresql:// URLs; SQLAlchemy's async engine needs asyncpg."""
+        v = v.strip()
+        for prefix in ("postgresql://", "postgres://"):
+            if v.startswith(prefix):
+                return "postgresql+asyncpg://" + v[len(prefix):]
+        return v
 
     # --- Storage ---
     SUPABASE_STORAGE_BUCKET_INVOICES: str = "invoices"
