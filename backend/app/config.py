@@ -73,9 +73,11 @@ class Settings(BaseSettings):
         the host and may not include this domain.
         """
         local = r"https?://(localhost|127\.0\.0\.1)(:\d+)?"
-        if self.is_production:
-            return rf"^({local}|https://ske-business-app\.vercel\.app)$"
-        return rf"^{local}$"
+        # Any Vercel deployment (production domain + preview URLs) in every
+        # environment, so a missing/incorrect APP_ENV or CORS_ORIGINS on the
+        # host can't cause preflight (OPTIONS) requests to fail with 400.
+        vercel = r"https://[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*\.vercel\.app"
+        return rf"^({local}|{vercel})$"
 
     @property
     def is_production(self) -> bool:
