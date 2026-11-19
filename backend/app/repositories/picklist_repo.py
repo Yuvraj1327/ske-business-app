@@ -64,6 +64,34 @@ class PicklistRepository:
             totals[status] = Decimal(cheque if status == "cheque" else payable)
         return totals
 
+    async def return_totals_by_picklist_no(self, picklist_no: str) -> tuple[Decimal, Decimal]:
+        """(returns, damaged) — sums of completed sales-return amounts for
+        the sales on this picklist; returns whose reason is 'Damaged' (the
+        Picklist screen's Damaged action) count as damaged, all others as
+        returns. Each sale is counted once even if it appears on several
+        rows."""
+        from app.models.sales_return import SalesReturn
+
+        sale_ids = (
+            select(PicklistItem.sale_id)
+            .join(Picklist, Picklist.id == PicklistItem.picklist_id)
+            .where(Picklist.picklist_no == picklist_no, PicklistItem.sale_id.is_not(None))
+            .distinct()
+        )
+        result = await self.db.execute(
+            select(SalesReturn.reason, func.coalesce(func.sum(SalesReturn.total_return_amount), 0))
+            .where(SalesReturn.sale_id.in_(sale_ids), SalesReturn.status == "completed")
+            .group_by(SalesReturn.reason)
+        )
+        returns_total = Decimal("0")
+        damage_total = Decimal("0")
+        for reason, amount in result.all():
+            if (reason or "").strip().lower() == "damaged":
+                damage_total += Decimal(amount)
+            else:
+                returns_total += Decimal(amount)
+        return returns_total, damage_total
+
     async def items_by_picklist_no_and_status(self, picklist_no: str, status: str) -> list[PicklistItem] | None:
         """The picklist's rows saved with this collection status, in picklist
         order — None if there is no picklist with this number."""

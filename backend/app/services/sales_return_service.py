@@ -1,6 +1,6 @@
 import uuid
 from datetime import date
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,11 +9,13 @@ from app.core.exceptions import BusinessRuleError, NotFoundError, PermissionDeni
 from app.core.security import CurrentUser
 from app.models.customer import Customer
 from app.models.invoice import Invoice
+from app.models.picklist import Picklist, PicklistItem
 from app.models.product import Product
 from app.models.sale import Sale, SaleItem
 from app.models.sales_return import SalesReturn, SalesReturnItem
 from app.repositories.picklist_repo import PicklistRepository
 from app.repositories.sales_return_repo import SalesReturnRepository
+from app.repositories.settlement_repo import SettlementRepository
 from app.schemas.common import money_str
 from app.schemas.sales_return import SalesReturnCreateRequest, SalesReturnItemResponse, SalesReturnResponse
 from app.services.sale_service import compute_payment_status
@@ -33,7 +35,9 @@ class SalesReturnService:
             raise PermissionDeniedError("You can only manage returns for sales on your own picklists.")
 
     async def create_return(self, payload: SalesReturnCreateRequest, current_user: CurrentUser) -> SalesReturnResponse:
-        sale_result = await self.db.execute(select(Sale).where(Sale.id == payload.sale_id))
+        # Row-locked so two simultaneous returns on one sale validate and
+        # deduct one after the other (no over-return, no lost total update).
+        sale_result = await self.db.execute(select(Sale).where(Sale.id == payload.sale_id).with_for_update())
         sale = sale_result.scalar_one_or_none()
         if sale is None:
             raise ValidationError("Sale does not exist.", field="sale_id")
@@ -62,11 +66,24 @@ class SalesReturnService:
                     f"{sale_item.quantity} sold units remain returnable for this line."
                 )
 
-            # Per-unit rate derived from the line's actual net total (so a
-            # line discount is reflected proportionally in the refund),
-            # documented assumption: no separate/partial-discount rule.
-            per_unit_rate = sale_item.line_total / sale_item.quantity if sale_item.quantity else Decimal("0")
-            item_amount = (item.quantity * per_unit_rate).quantize(Decimal("0.01"))
+            # The line's effective charge: its net line total, scaled by the
+            # sale-level discount (total = subtotal - discount) so a full
+            # return refunds exactly what the customer was charged, never
+            # more. Picklist sales have no header discount (ratio 1).
+            effective_line_total = sale_item.line_total
+            if sale.discount_amount and sale.subtotal:
+                effective_line_total = (sale_item.line_total * (sale.subtotal - sale.discount_amount) / sale.subtotal).quantize(
+                    Decimal("0.01"), rounding=ROUND_HALF_UP
+                )
+            if item.quantity == returnable:
+                # Last units of the line: refund whatever is left of the line
+                # so partial returns that were rounded individually still sum
+                # to exactly the line total (no cent drift).
+                already_amount = Decimal(str(await self.returns.already_returned_amount(sale_item.id)))
+                item_amount = max(effective_line_total - already_amount, Decimal("0"))
+            else:
+                per_unit_rate = effective_line_total / sale_item.quantity if sale_item.quantity else Decimal("0")
+                item_amount = (item.quantity * per_unit_rate).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
             total_return_amount += item_amount
             return_items.append(SalesReturnItem(sale_item_id=sale_item.id, quantity=item.quantity, amount=item_amount))
@@ -95,12 +112,53 @@ class SalesReturnService:
             sale.payment_status = compute_payment_status(sale.paid_amount, sale.total_amount)
             await self.db.flush()
 
+            await self._reduce_pending_picklist_amount(sale.id, total_return_amount)
+            await self._sync_settlement_returns(sale.id)
+
             await self.db.commit()
         except Exception:
             await self.db.rollback()
             raise
 
         return await self._build_response(sales_return, sale)
+
+    async def _reduce_pending_picklist_amount(self, sale_id: uuid.UUID, returned: Decimal) -> None:
+        """A return lowers the amount still to be collected on the sale's
+        picklist row so the agent can't record the full original invoice as
+        cash. Only rows still 'pending' are touched — once a delivery is
+        marked cash/online/credit/cheque its amount was already collected or
+        recorded. Never below zero. The picklist's imported total_amount (the
+        Pick Sheet Value) is deliberately NOT changed: returns are deducted
+        separately on the settlement sheet, so changing both would deduct
+        twice."""
+        if returned <= 0:
+            return
+        result = await self.db.execute(
+            select(PicklistItem).where(PicklistItem.sale_id == sale_id, PicklistItem.status == "pending")
+        )
+        for item in result.scalars().all():
+            item.amount_payable = max(item.amount_payable - returned, Decimal("0"))
+        await self.db.flush()
+
+    async def _sync_settlement_returns(self, sale_id: uuid.UUID) -> None:
+        """Sets Returns Goods / Damage Return on every open Settlement Sheet
+        linked (by Pick Sheet No.) to a picklist containing this sale. The
+        values are recomputed from the persisted returns and assigned, never
+        added, so repeating this can't deduct twice. Completed sheets are
+        never touched."""
+        result = await self.db.execute(
+            select(Picklist.picklist_no)
+            .join(PicklistItem, PicklistItem.picklist_id == Picklist.id)
+            .where(PicklistItem.sale_id == sale_id)
+            .distinct()
+        )
+        for picklist_no in result.scalars().all():
+            await self.picklists.lock_by_picklist_no(picklist_no)
+            returns_total, damage_total = await self.picklists.return_totals_by_picklist_no(picklist_no)
+            for sheet in await SettlementRepository(self.db).list_open_by_pick_sheet_no(picklist_no):
+                sheet.returns_amount = returns_total
+                sheet.damage_return_amount = damage_total
+        await self.db.flush()
 
     async def _build_response(
         self, sales_return: SalesReturn, sale: Sale, customer: Customer | None = None

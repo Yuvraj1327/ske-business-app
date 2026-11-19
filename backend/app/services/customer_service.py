@@ -1,7 +1,7 @@
 import uuid
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ConflictError, NotFoundError, PermissionDeniedError, ValidationError
@@ -161,9 +161,17 @@ class CustomerService:
         total_sales = sum((r[0] for r in rows), Decimal("0"))
         total_paid_via_sales = sum((r[1] for r in rows), Decimal("0"))
 
+        # Completed returns on active sales. A return has ALREADY lowered its
+        # sale's total_amount (see SalesReturnService.create_return), so it is
+        # added back here for the gross figure and is NOT deducted again from
+        # outstanding.
         returns_result = await self.db.execute(
-            select(SalesReturn.total_return_amount).where(
-                SalesReturn.customer_id == customer_id, SalesReturn.status == "completed"
+            select(SalesReturn.total_return_amount)
+            .join(Sale, Sale.id == SalesReturn.sale_id)
+            .where(
+                SalesReturn.customer_id == customer_id,
+                SalesReturn.status == "completed",
+                Sale.status == "active",
             )
         )
         total_returned = sum((r[0] for r in returns_result.all()), Decimal("0"))
@@ -178,13 +186,14 @@ class CustomerService:
         )
         total_unallocated_payments = sum((r[0] for r in unallocated_result.all()), Decimal("0"))
 
-        outstanding = total_sales - total_paid_via_sales - total_returned - total_unallocated_payments
+        # total_sales is already net of returns (see above).
+        outstanding = total_sales - total_paid_via_sales - total_unallocated_payments
         if outstanding < 0:
             outstanding = Decimal("0")
 
         return CustomerOutstandingResponse(
             customer_id=customer_id,
-            total_sales=money_str(total_sales),
+            total_sales=money_str(total_sales + total_returned),
             total_paid=money_str(total_paid_via_sales + total_unallocated_payments),
             total_returned=money_str(total_returned),
             outstanding=money_str(outstanding),
@@ -198,14 +207,26 @@ class CustomerService:
         sales_result = await self.db.execute(
             select(Sale).where(Sale.customer_id == customer_id, Sale.status == "active").order_by(Sale.sale_date)
         )
-        for sale in sales_result.scalars().all():
+        sales = list(sales_result.scalars().all())
+        # sale.total_amount is net of returns; the ledger lists the return as
+        # its own credit, so the sale's debit must be the original amount or
+        # the return would be deducted twice.
+        returned_by_sale: dict[uuid.UUID, Decimal] = {}
+        if sales:
+            returned_result = await self.db.execute(
+                select(SalesReturn.sale_id, func.coalesce(func.sum(SalesReturn.total_return_amount), 0))
+                .where(SalesReturn.sale_id.in_([x.id for x in sales]), SalesReturn.status == "completed")
+                .group_by(SalesReturn.sale_id)
+            )
+            returned_by_sale = {sid: Decimal(amt) for sid, amt in returned_result.all()}
+        for sale in sales:
             entries.append(
                 LedgerEntry(
                     entry_date=sale.created_at,
                     entry_type="sale",
                     reference_id=sale.id,
                     reference_label=f"Sale on {sale.sale_date.isoformat()}",
-                    debit=money_str(sale.total_amount),
+                    debit=money_str(sale.total_amount + returned_by_sale.get(sale.id, Decimal("0"))),
                     credit=money_str(Decimal("0")),
                 )
             )
@@ -229,7 +250,12 @@ class CustomerService:
 
         returns_result = await self.db.execute(
             select(SalesReturn)
-            .where(SalesReturn.customer_id == customer_id, SalesReturn.status == "completed")
+            .join(Sale, Sale.id == SalesReturn.sale_id)
+            .where(
+                SalesReturn.customer_id == customer_id,
+                SalesReturn.status == "completed",
+                Sale.status == "active",
+            )
             .order_by(SalesReturn.return_date)
         )
         for ret in returns_result.scalars().all():

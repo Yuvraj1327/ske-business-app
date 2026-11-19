@@ -29,6 +29,17 @@ class SalesReturnRepository:
         )
         return result.scalar_one()
 
+    async def already_returned_amount(self, sale_item_id: uuid.UUID) -> "float | int":
+        """Sum of refund amounts already recorded for a sale line (completed
+        returns only) — used so the final return of a line refunds exactly
+        what remains of it."""
+        result = await self.db.execute(
+            select(func.coalesce(func.sum(SalesReturnItem.amount), 0))
+            .join(SalesReturn, SalesReturn.id == SalesReturnItem.sales_return_id)
+            .where(SalesReturnItem.sale_item_id == sale_item_id, SalesReturn.status == "completed")
+        )
+        return result.scalar_one()
+
     def _base_query(
         self, customer_id: uuid.UUID | None, sale_id: uuid.UUID | None, restrict_to_sale_ids: Select | None = None
     ) -> Select:
